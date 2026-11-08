@@ -58,10 +58,10 @@ function Fishing.rollFish<F>(
 		end
 	end
 
-	-- roll was 1 or rounding pushed past the end: return the last available fish.
+	-- roll was 1 or rounding pushed past the end: return the last fish that can drop.
 	for i = #rarityOrder, 1, -1 do
 		local bucket = byRarity[rarityOrder[i]]
-		if bucket then
+		if bucket and (rarityWeights[rarityOrder[i]] or 0) > 0 then
 			return bucket[#bucket]
 		end
 	end

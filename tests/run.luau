@@ -3,18 +3,19 @@
 local process = require("@lune/process")
 local TestKit = require("./TestKit")
 
-local specs: { [string]: (TestKit.TestKit) -> () } = {
-	Config = require("./Config.spec"),
-	Depth = require("./Depth.spec"),
-	Oxygen = require("./Oxygen.spec"),
-	Pools = require("./Pools.spec"),
-	Fishing = require("./Fishing.spec"),
+-- Ordered list so runs and failure output are deterministic.
+local specs: { { name: string, run: (TestKit.TestKit) -> () } } = {
+	{ name = "Config", run = require("./Config.spec") },
+	{ name = "Depth", run = require("./Depth.spec") },
+	{ name = "Oxygen", run = require("./Oxygen.spec") },
+	{ name = "Pools", run = require("./Pools.spec") },
+	{ name = "Fishing", run = require("./Fishing.spec") },
 }
 
 local kit = TestKit.new()
-for name, spec in specs do
-	kit.prefix = `{name} > `
-	spec(kit)
+for _, spec in specs do
+	kit.prefix = `{spec.name} > `
+	spec.run(kit)
 end
 
 for _, failure in kit.failures do

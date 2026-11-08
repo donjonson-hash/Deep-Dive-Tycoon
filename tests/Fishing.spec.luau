@@ -38,6 +38,13 @@ return function(t: TestKit.TestKit)
 		t:eq(counts.Angelfish, 1000)
 	end)
 
+	t:test("a disabled rarity never drops, even on roll = 1", function()
+		local weights = table.clone(Config.RarityWeights)
+		weights.Rare = 0
+		local fish = Fishing.rollFish(Config.Fish, "Lagoon", weights, Config.RarityOrder, 1)
+		t:eq(if fish then fish.id else nil, "Seahorse")
+	end)
+
 	t:test("zone without fish returns nil", function()
 		t:eq(roll("Trench", 0.5), nil)
 	end)

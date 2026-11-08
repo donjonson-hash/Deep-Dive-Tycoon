@@ -43,24 +43,30 @@ function DepthHud.start()
 	local player = Players.LocalPlayer
 	local label = createLabel(player:WaitForChild("PlayerGui"))
 
+	local function setText(text: string)
+		if label.Text ~= text then
+			label.Text = text
+		end
+	end
+
 	RunService.RenderStepped:Connect(function()
 		local character = player.Character
 		local root = if character then character:FindFirstChild("HumanoidRootPart") else nil
 		if not root or not root:IsA("BasePart") then
-			label.Text = ""
+			setText("")
 			return
 		end
 
 		local depth =
 			Depth.toMeters(root.Position.Y, Config.World.surfaceY, Config.World.studsPerMeter)
 		if depth < SURFACE_TOLERANCE then
-			label.Text = "На поверхности"
+			setText("На поверхности")
 			return
 		end
 
 		local zone = Depth.zoneAt(Config.Zones, depth)
 		local zoneName = if zone then zone.name else "?"
-		label.Text = string.format("Глубина: %d м · %s", math.floor(depth), zoneName)
+		setText(string.format("Глубина: %d м · %s", math.floor(depth), zoneName))
 	end)
 end
 
