@@ -47,8 +47,20 @@ local CORALS = {
 	Color3.fromRGB(190, 110, 230),
 }
 
--- Market kiosk: to the right of the spawn, facing it.
+-- Market kiosk: to the right of the spawn, facing it, on a stone plinth so it
+-- clears the terrain like the pools do.
 local MARKET_POSITION = Vector3.new(-40, 0, 0)
+local MARKET_LIFT = 3
+
+-- Palms: a ring near the shore with a gap toward the pier, plus four inland.
+local PALM_RING_COUNT = 12
+local PALM_RING_INSET = 14 -- studs in from the island edge
+local PALM_INNER_RADIUS = 58
+local PALM_PIER_GAP = math.rad(25) -- keep the +X approach to the pier clear
+local PALM_SEED = 7 -- fixed so the island looks the same every server
+local TRUNK = Color3.fromRGB(140, 100, 60)
+local FROND = Color3.fromRGB(60, 150, 60)
+local COCONUT = Color3.fromRGB(90, 60, 35)
 
 local function makePart(className: string?, props: { [string]: any }, parent: Instance): BasePart
 	local part = Instance.new((className or "Part") :: any) :: BasePart
@@ -156,7 +168,8 @@ local function buildTerrain()
 		end
 	end
 
-	-- Island: a sand column from the seabed to above the surface, grass on top.
+	-- Island: a sand column from the seabed to above the surface. All sand, no
+	-- grass: it is a beach, and the palms carry the green.
 	local islandHeight = world.islandTopY - floorY
 	terrain:FillCylinder(
 		CFrame.new(0, floorY + islandHeight / 2, 0),
@@ -164,12 +177,103 @@ local function buildTerrain()
 		world.islandRadius,
 		Enum.Material.Sand
 	)
-	terrain:FillCylinder(
-		CFrame.new(0, world.islandTopY - 1, 0),
-		2,
-		world.islandRadius - 6,
-		Enum.Material.Grass
-	)
+end
+
+---------------------------------------------------------------------------
+-- Palms
+---------------------------------------------------------------------------
+
+-- A palm: a gently curving trunk of cylinder segments, a crown of drooping
+-- fronds and a few coconuts. `lean` is the horizontal drift of the top.
+local function buildPalm(parent: Instance, base: Vector3, height: number, lean: Vector3)
+	local palm = Instance.new("Model")
+	palm.Name = "Palm"
+
+	local segments = 5
+	local function pointAt(t: number): Vector3
+		-- Quadratic curve: straight at the root, leaning more toward the top.
+		return base + Vector3.new(0, height * t, 0) + lean * (t * t)
+	end
+	for i = 1, segments do
+		local from = pointAt((i - 1) / segments)
+		local to = pointAt(i / segments)
+		local mid = (from + to) / 2
+		local thickness = 1.6 - 0.6 * (i / segments)
+		makePart(nil, {
+			Name = "Trunk",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new((to - from).Magnitude + 0.2, thickness, thickness),
+			-- Cylinders lie along X; aim X from `from` to `to`.
+			CFrame = CFrame.lookAt(mid, to) * CFrame.Angles(0, math.pi / 2, 0),
+			Color = TRUNK,
+			Material = Enum.Material.Wood,
+		}, palm)
+	end
+
+	local top = pointAt(1)
+	local fronds = 7
+	for i = 1, fronds do
+		local yaw = (i / fronds) * 2 * math.pi
+		makePart(nil, {
+			Name = "Frond",
+			Size = Vector3.new(1.8, 0.2, 7),
+			CFrame = CFrame.new(top)
+				* CFrame.Angles(0, yaw, 0)
+				* CFrame.Angles(math.rad(-28), 0, 0)
+				* CFrame.new(0, 0, -3.5),
+			Color = FROND,
+			Material = Enum.Material.Grass,
+			CanCollide = false,
+		}, palm)
+	end
+	for i = 1, 3 do
+		local yaw = i * 2.1
+		makePart(nil, {
+			Name = "Coconut",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * 0.9,
+			CFrame = CFrame.new(top + Vector3.new(math.cos(yaw) * 0.8, -0.6, math.sin(yaw) * 0.8)),
+			Color = COCONUT,
+			Material = Enum.Material.SmoothPlastic,
+			CanCollide = false,
+		}, palm)
+	end
+
+	palm.Parent = parent
+end
+
+local function buildPalms(parent: Instance)
+	local world = Config.World
+	local rng = Random.new(PALM_SEED)
+	local folder = Instance.new("Folder")
+	folder.Name = "Palms"
+
+	local function plant(angle: number, radius: number)
+		local base =
+			Vector3.new(math.cos(angle) * radius, world.islandTopY, math.sin(angle) * radius)
+		local height = rng:NextNumber(14, 20)
+		-- Lean outward a little, toward the sea, like real shore palms.
+		local lean = Vector3.new(math.cos(angle), 0, math.sin(angle)) * rng:NextNumber(1.5, 3.5)
+		buildPalm(folder, base, height, lean)
+	end
+
+	-- Shore ring, skipping the sector where the pier leaves the island (+X).
+	local ringRadius = world.islandRadius - PALM_RING_INSET
+	for i = 1, PALM_RING_COUNT do
+		local angle = (i / PALM_RING_COUNT) * 2 * math.pi + rng:NextNumber(-0.12, 0.12)
+		local fromPier = math.abs(math.atan2(math.sin(angle), math.cos(angle)))
+		if fromPier < PALM_PIER_GAP then
+			continue
+		end
+		plant(angle, ringRadius + rng:NextNumber(-4, 4))
+	end
+
+	-- Four inland palms on the diagonals, clear of spawn, pools, market and pier.
+	for i = 0, 3 do
+		plant(math.pi / 4 + i * math.pi / 2, PALM_INNER_RADIUS)
+	end
+
+	folder.Parent = parent
 end
 
 ---------------------------------------------------------------------------
@@ -369,8 +473,9 @@ end
 -- Built in kiosk space (front = -Z, ground y = 0) and placed with `root`.
 local function buildMarket(parent: Instance)
 	local groundY = Config.World.islandTopY
-	-- Face the spawn: the kiosk's -Z must point to world +X.
-	local root = CFrame.new(MARKET_POSITION + Vector3.new(0, groundY, 0))
+	-- Face the spawn: the kiosk's -Z must point to world +X. Kiosk y = 0 is the
+	-- top of the plinth, MARKET_LIFT above the sand.
+	local root = CFrame.new(MARKET_POSITION + Vector3.new(0, groundY + MARKET_LIFT, 0))
 		* CFrame.Angles(0, -math.pi / 2, 0)
 
 	local market = Instance.new("Model")
@@ -381,11 +486,12 @@ local function buildMarket(parent: Instance)
 		return makePart(className, props, market)
 	end
 
-	-- Stone base and the wooden hut: back wall, two side walls, roof.
+	-- Stone plinth from the sand up to kiosk level, then the wooden hut: back
+	-- wall, two side walls, roof.
 	place(nil, {
 		Name = "Base",
-		Size = Vector3.new(22, 1, 14),
-		CFrame = CFrame.new(0, 0.5, 0),
+		Size = Vector3.new(22, MARKET_LIFT + 1, 14),
+		CFrame = CFrame.new(0, (1 - MARKET_LIFT) / 2, 0),
 		Color = STONE,
 		Material = Enum.Material.Slate,
 	})
@@ -559,11 +665,12 @@ local function buildMarket(parent: Instance)
 	)
 
 	-- Standing in SellZone opens the market UI; MarketService checks the same
-	-- zone before paying out. It covers the approach from the spawn.
+	-- zone before paying out. About 10 studs of sand in front of the counter,
+	-- reaching down to ground level below the plinth.
 	local sellZone = place(nil, {
 		Name = "SellZone",
-		Size = Vector3.new(30, 8, 26),
-		CFrame = CFrame.new(0, 4, -15),
+		Size = Vector3.new(20, 10, 12),
+		CFrame = CFrame.new(0, 2 - MARKET_LIFT, -11),
 		Transparency = 1,
 		CanCollide = false,
 		CanQuery = false,
@@ -646,6 +753,7 @@ local function buildIsland(parent: Instance)
 	pools.Parent = parent
 
 	buildMarket(parent)
+	buildPalms(parent)
 end
 
 function MapBuilder.build(): Folder
