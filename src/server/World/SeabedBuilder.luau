@@ -2,6 +2,9 @@
 -- Dresses the lagoon seabed so the dive has something to look at: clusters of
 -- rocks, corals of several shapes and tall seaweed, scattered over the
 -- Lagoon's spawn ring. Seeded so every server matches.
+--
+-- Sizes are real-world meters converted with Config.World.studsPerMeter, so
+-- they sit right next to the player (a Roblox character is ~5 studs ≈ 1.7 m).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -9,11 +12,15 @@ local Config = require(ReplicatedStorage.Shared.Config)
 
 local SeabedBuilder = {}
 
+local SPM = Config.World.studsPerMeter
+local function m(meters: number): number
+	return meters * SPM
+end
+
 local SEED = 11
 local CLUSTERS = 90
 local EDGE_MARGIN = 12 -- studs kept clear of the ring edges
-local SINK = 0.6 -- bury bases a little so nothing floats over the sand
-local CORAL_SCALE = 1.6 -- corals read better big at 50 m
+local SINK = m(0.1) -- bury bases a little so nothing floats over the sand
 
 local CORAL_COLORS = {
 	Color3.fromRGB(255, 120, 160),
@@ -51,7 +58,7 @@ local function blob(size: Vector3, cframe: CFrame, color: Color3, parent: Instan
 	return part
 end
 
--- Upright cylinder standing on `base` (cylinders lie along X by default).
+-- Upright cylinder standing on `base`, sizes in studs (cylinders lie along X).
 local function pillar(
 	height: number,
 	radius: number,
@@ -72,20 +79,22 @@ local function pillar(
 	}, parent)
 end
 
+local function jitter(rng: Random, meters: number): Vector3
+	return Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)) * m(meters)
+end
+
 ---------------------------------------------------------------------------
--- Coral shapes
+-- Coral shapes, sized like their real counterparts
 ---------------------------------------------------------------------------
 
--- Several upright, slightly splayed branches.
+-- Staghorn-style colony: thin branches 0.5–1.4 m tall, splayed.
 local function branchCoral(parent: Instance, base: Vector3, rng: Random, color: Color3)
-	for _ = 1, rng:NextInteger(3, 6) do
-		local height = rng:NextNumber(2.5, 5) * CORAL_SCALE
-		local offset = Vector3.new(rng:NextNumber(-1.5, 1.5), 0, rng:NextNumber(-1.5, 1.5))
+	for _ = 1, rng:NextInteger(4, 8) do
 		pillar(
-			height,
-			0.35 * CORAL_SCALE,
-			base + offset,
-			rng:NextNumber(-0.35, 0.35),
+			m(rng:NextNumber(0.5, 1.4)),
+			m(0.08),
+			base + jitter(rng, 0.4),
+			rng:NextNumber(-0.45, 0.45),
 			rng:NextNumber(0, 2 * math.pi),
 			color,
 			parent
@@ -93,22 +102,22 @@ local function branchCoral(parent: Instance, base: Vector3, rng: Random, color: 
 	end
 end
 
--- A low dome.
+-- Brain coral: a dome 0.6–1.8 m across.
 local function brainCoral(parent: Instance, base: Vector3, rng: Random, color: Color3)
-	local width = rng:NextNumber(2.5, 4.5) * CORAL_SCALE
+	local width = m(rng:NextNumber(0.6, 1.8))
 	blob(
-		Vector3.new(width, width * 0.6, width * rng:NextNumber(0.8, 1.1)),
-		CFrame.new(base + Vector3.new(0, width * 0.3 - SINK, 0)),
+		Vector3.new(width, width * 0.55, width * rng:NextNumber(0.8, 1.1)),
+		CFrame.new(base + Vector3.new(0, width * 0.27 - SINK, 0)),
 		color,
 		parent
 	)
 end
 
--- Thin upright plate.
+-- Sea fan: a thin upright plate 0.6–1.4 m wide.
 local function fanCoral(parent: Instance, base: Vector3, rng: Random, color: Color3)
-	local size = rng:NextNumber(2.5, 4) * CORAL_SCALE
+	local size = m(rng:NextNumber(0.6, 1.4))
 	blob(
-		Vector3.new(size, size * 1.1, 0.3),
+		Vector3.new(size, size * 1.1, m(0.04)),
 		CFrame.new(base + Vector3.new(0, size * 0.55 - SINK, 0))
 			* CFrame.Angles(0, rng:NextNumber(0, 2 * math.pi), 0),
 		color,
@@ -116,13 +125,13 @@ local function fanCoral(parent: Instance, base: Vector3, rng: Random, color: Col
 	)
 end
 
--- Flat plate on a stalk.
+-- Table coral: a plate 1–2.2 m across on a short stalk.
 local function tableCoral(parent: Instance, base: Vector3, rng: Random, color: Color3)
-	local height = rng:NextNumber(2, 3.5) * CORAL_SCALE
-	local width = rng:NextNumber(4, 6) * CORAL_SCALE
-	pillar(height, 0.5 * CORAL_SCALE, base, 0, 0, color, parent)
+	local height = m(rng:NextNumber(0.3, 0.6))
+	local width = m(rng:NextNumber(1, 2.2))
+	pillar(height, m(0.12), base, 0, 0, color, parent)
 	blob(
-		Vector3.new(width, 0.6 * CORAL_SCALE, width * rng:NextNumber(0.7, 1)),
+		Vector3.new(width, m(0.12), width * rng:NextNumber(0.7, 1)),
 		CFrame.new(base + Vector3.new(0, height - SINK, 0))
 			* CFrame.Angles(0, rng:NextNumber(0, math.pi), rng:NextNumber(-0.1, 0.1)),
 		color,
@@ -130,15 +139,13 @@ local function tableCoral(parent: Instance, base: Vector3, rng: Random, color: C
 	)
 end
 
--- Bundle of vertical tubes of different heights.
+-- Tube sponge bundle: 5–9 tubes 0.3–1 m tall.
 local function tubeCoral(parent: Instance, base: Vector3, rng: Random, color: Color3)
-	for _ = 1, rng:NextInteger(5, 8) do
-		local height = rng:NextNumber(2, 5) * CORAL_SCALE
-		local offset = Vector3.new(rng:NextNumber(-1.2, 1.2), 0, rng:NextNumber(-1.2, 1.2))
+	for _ = 1, rng:NextInteger(5, 9) do
 		pillar(
-			height,
-			0.45 * CORAL_SCALE,
-			base + offset,
+			m(rng:NextNumber(0.3, 1.0)),
+			m(rng:NextNumber(0.07, 0.11)),
+			base + jitter(rng, 0.3),
 			rng:NextNumber(-0.1, 0.1),
 			0,
 			color,
@@ -147,22 +154,15 @@ local function tubeCoral(parent: Instance, base: Vector3, rng: Random, color: Co
 	end
 end
 
--- Stack of shrinking lumps.
+-- Pillar coral: a stack of shrinking lumps, up to ~1.5 m tall.
 local function towerCoral(parent: Instance, base: Vector3, rng: Random, color: Color3)
 	local y = -SINK
-	local width = rng:NextNumber(3, 4.5) * CORAL_SCALE
+	local width = m(rng:NextNumber(0.7, 1.1))
 	for _ = 1, rng:NextInteger(3, 4) do
 		local height = width * 0.6
 		blob(
 			Vector3.new(width, height, width * rng:NextNumber(0.85, 1.1)),
-			CFrame.new(
-				base
-					+ Vector3.new(
-						rng:NextNumber(-0.4, 0.4),
-						y + height / 2,
-						rng:NextNumber(-0.4, 0.4)
-					)
-			),
+			CFrame.new(base + jitter(rng, 0.08) + Vector3.new(0, y + height / 2, 0)),
 			color,
 			parent
 		)
@@ -171,15 +171,14 @@ local function towerCoral(parent: Instance, base: Vector3, rng: Random, color: C
 	end
 end
 
--- A tuft of tall blades (four times the original height: they frame the dive).
+-- Kelp-like tuft: blades 5.5–10.5 m tall frame the dive.
 local function seaweed(parent: Instance, base: Vector3, rng: Random)
 	for i = 1, rng:NextInteger(3, 5) do
-		local height = rng:NextNumber(16, 32)
-		local offset = Vector3.new(rng:NextNumber(-4.8, 4.8), 0, rng:NextNumber(-4.8, 4.8))
+		local height = m(rng:NextNumber(5.5, 10.5))
 		makePart({
 			Name = "Seaweed",
-			Size = Vector3.new(2, height, 0.8),
-			CFrame = CFrame.new(base + offset + Vector3.new(0, height / 2 - SINK, 0))
+			Size = Vector3.new(m(0.65), height, m(0.25)),
+			CFrame = CFrame.new(base + jitter(rng, 1.6) + Vector3.new(0, height / 2 - SINK, 0))
 				* CFrame.Angles(rng:NextNumber(-0.15, 0.15), rng:NextNumber(0, math.pi), 0),
 			Color = if i % 2 == 0 then SEAWEED_DARK else SEAWEED,
 			Material = Enum.Material.Grass,
@@ -187,13 +186,13 @@ local function seaweed(parent: Instance, base: Vector3, rng: Random)
 	end
 end
 
+-- Boulders 0.4–1.4 m.
 local function rocks(parent: Instance, base: Vector3, rng: Random)
 	for _ = 1, rng:NextInteger(2, 4) do
-		local size = rng:NextNumber(1.5, 3.5)
-		local offset = Vector3.new(rng:NextNumber(-3, 3), 0, rng:NextNumber(-3, 3))
+		local size = m(rng:NextNumber(0.4, 1.4))
 		blob(
 			Vector3.new(size, size * 0.7, size * rng:NextNumber(0.8, 1.3)),
-			CFrame.new(base + offset + Vector3.new(0, size * 0.35 - SINK, 0)),
+			CFrame.new(base + jitter(rng, 1) + Vector3.new(0, size * 0.35 - SINK, 0)),
 			ROCK,
 			parent
 		)
@@ -228,18 +227,18 @@ function SeabedBuilder.build(parent: Instance, floorY: number): Folder
 		local cluster = Instance.new("Model")
 		cluster.Name = "Cluster"
 		rocks(cluster, base, rng)
-		-- Two to three corals of random shapes plus, often, a seaweed tuft.
-		for _ = 1, rng:NextInteger(2, 3) do
+		-- Real reefs are dense: three to five corals per patch, often kelp.
+		for _ = 1, rng:NextInteger(3, 5) do
 			local color = CORAL_COLORS[rng:NextInteger(1, #CORAL_COLORS)]
-			local spot = base + Vector3.new(rng:NextNumber(-4, 4), 0, rng:NextNumber(-4, 4))
-			CORAL_SHAPES[rng:NextInteger(1, #CORAL_SHAPES)](cluster, spot, rng, color)
+			CORAL_SHAPES[rng:NextInteger(1, #CORAL_SHAPES)](
+				cluster,
+				base + jitter(rng, 1.5),
+				rng,
+				color
+			)
 		end
 		if rng:NextNumber() < 0.6 then
-			seaweed(
-				cluster,
-				base + Vector3.new(rng:NextNumber(-6, 6), 0, rng:NextNumber(-6, 6)),
-				rng
-			)
+			seaweed(cluster, base + jitter(rng, 2), rng)
 		end
 		cluster.Parent = folder
 	end

@@ -74,6 +74,11 @@ a terminal opened before they were installed needs a restart to see them.
   under it); fish, seabed props and nests all derive their positions from
   those rings, never from hard-coded radii. Adding a zone = adding a `Zones`
   entry with a ring and a `FishBuilder` recipe per new species.
+- Scenery scale: a Roblox character is ~5 studs ≈ 1.7 m at
+  `World.studsPerMeter` = 3. Seabed props and the wreck are written in real
+  meters and converted with that constant, so they match the player. Fish
+  are the exception: `FishBuilder.SCALE` = 2 on purpose (owner's call), for
+  readability.
 - Terrain is smoothed on a 4-stud grid: anything built flush with the island
   top sinks into the sand. Keep walkable props ≥ 3 studs above
   `Config.World.islandTopY` (see `POOL_LIFT` / `MARKET_LIFT` in `MapBuilder`).
