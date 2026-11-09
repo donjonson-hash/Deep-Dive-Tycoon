@@ -11,6 +11,7 @@ local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local SeabedBuilder = require(script.Parent.SeabedBuilder)
+local WreckBuilder = require(script.Parent.WreckBuilder)
 
 local MapBuilder = {}
 
@@ -779,6 +780,7 @@ function MapBuilder.build(): Folder
 	buildIsland(map)
 	buildPier(map)
 	SeabedBuilder.build(map, floorY)
+	WreckBuilder.build(map, floorY)
 
 	map.Parent = Workspace
 	return map

@@ -27,9 +27,18 @@ local EYE = Color3.fromRGB(15, 15, 15)
 local EYE_WHITE = Color3.fromRGB(240, 240, 240)
 local LABEL_DISTANCE = 80 -- studs; the price tag fades beyond this
 
+-- Recipes are written at "natural" size; every part, hinge and tag offset is
+-- multiplied by this on the way out (owner asked for fish twice as big).
+local SCALE = 2
+
 ---------------------------------------------------------------------------
--- Part helpers. Everything is built around the origin facing -Z.
+-- Part helpers. Everything is built around the origin facing -Z, in recipe
+-- units; makePart applies SCALE to sizes and positions (rotation untouched).
 ---------------------------------------------------------------------------
+
+local function scaled(cframe: CFrame): CFrame
+	return CFrame.new(cframe.Position * SCALE) * cframe.Rotation
+end
 
 local function makePart(className: string, props: { [string]: any }, parent: Instance): BasePart
 	local part = Instance.new(className :: any) :: BasePart
@@ -40,6 +49,12 @@ local function makePart(className: string, props: { [string]: any }, parent: Ins
 	part.Material = Enum.Material.SmoothPlastic
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
+	if props.Size then
+		props.Size = props.Size * SCALE
+	end
+	if props.CFrame then
+		props.CFrame = scaled(props.CFrame)
+	end
 	for key, value in props do
 		(part :: any)[key] = value
 	end
@@ -170,7 +185,7 @@ local function forkedTail(
 		color,
 		tail
 	)
-	local hinge = CFrame.new(0, 0, hingeZ)
+	local hinge = scaled(CFrame.new(0, 0, hingeZ))
 	tail.WorldPivot = hinge
 	tail.Parent = parent
 	return tail, hinge
@@ -300,7 +315,8 @@ function FishBuilder.build(species: Config.Fish): FishParts
 	model:SetAttribute("Rarity", species.rarity)
 
 	local recipe = RECIPES[species.id] or generic(species)
-	local body, tail, tailHinge, height = recipe(model)
+	local body, tail, tailHinge, recipeHeight = recipe(model)
+	local height = recipeHeight * SCALE
 	model.PrimaryPart = body
 	addPriceTag(body, species, height)
 
