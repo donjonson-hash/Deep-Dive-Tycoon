@@ -1,5 +1,6 @@
-# Rojo build output
-build/
+# Rojo build output (keep the folder: `rojo build` does not create it)
+build/*
+!build/.gitkeep
 *.rbxl
 *.rbxlx
 *.rbxm

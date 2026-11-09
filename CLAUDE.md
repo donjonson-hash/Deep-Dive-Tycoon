@@ -9,8 +9,11 @@ context: `docs/PROJECT.md`; current scope: `docs/ROADMAP.md`.
 - Luau, synced into Roblox Studio with **Rojo** (`default.project.json`).
 - Tools pinned in `rokit.toml` (Rojo, StyLua, Selene, Lune). Install with
   `rokit install`; binaries live in `~/.rokit/bin`.
-- Code is written on Linux; Studio runs on a separate Windows laptop and
-  connects to `rojo serve` over the LAN (see README).
+- Two dev machines share this repo: a Linux desktop (no Studio) and a Windows
+  laptop (Studio + Rojo plugin). On Windows, Studio connects to a local
+  `rojo serve`; from Linux it connects over the LAN (see README).
+- `.gitattributes` forces LF line endings. Never enable `core.autocrlf` on
+  Windows: CRLF makes `stylua --check` fail on every file.
 
 ## Commands
 
@@ -19,10 +22,17 @@ rokit install                      # install pinned tools
 lune run tests/run                 # unit tests (pure logic)
 stylua . && selene src tests       # format + lint
 rojo build -o build/DeepDiveTycoon.rbxl   # build a place file
-rojo serve --address 0.0.0.0       # live sync to Studio on the LAN (port 34872)
+rojo serve                         # live sync to Studio on this machine (port 34872)
+rojo serve --address 0.0.0.0       # same, but reachable over the LAN (Linux -> laptop)
 ```
 
 Before every commit: `stylua --check . && selene src tests && lune run tests/run && rojo build -o build/DeepDiveTycoon.rbxl`.
+
+Windows notes: the shell is PowerShell 5.1, so chain with `;` instead of `&&`.
+Tools live in `%USERPROFILE%\.rokit\bin` and Git in `C:\Program Files\Git\cmd`;
+a terminal opened before they were installed needs a restart to see them.
+`selene` downloads the Roblox API dump on first run; if it fails with
+"error when getting API dump", it is a transient network error: rerun it.
 
 ## Layout
 
@@ -52,6 +62,7 @@ Before every commit: `stylua --check . && selene src tests && lune run tests/run
 
 ## Verification limits
 
-Studio does not run on this Linux machine. Lint, tests and `rojo build`
-verify code here; gameplay is verified by the owner in Studio on the
-Windows laptop. Say which one was done.
+Lint, tests and `rojo build` verify code on either machine. Gameplay is
+verified only in Studio, which exists on the Windows laptop: run
+`rojo serve`, connect the Rojo plugin to `localhost:34872`, press Play and
+check Output. On Linux there is no Studio. Say which verification was done.
