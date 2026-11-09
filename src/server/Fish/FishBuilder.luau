@@ -7,16 +7,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local RarityColors = require(ReplicatedStorage.Shared.RarityColors)
 
 local FishBuilder = {}
 
-local RARITY_COLORS: { [string]: Color3 } = {
-	Common = Color3.fromRGB(150, 170, 190),
-	Uncommon = Color3.fromRGB(90, 190, 110),
-	Rare = Color3.fromRGB(255, 140, 50),
-	Epic = Color3.fromRGB(170, 90, 230),
-	Legendary = Color3.fromRGB(255, 210, 60),
-}
 local EYE = Color3.fromRGB(20, 20, 20)
 
 local MIN_LENGTH = 3 -- studs; sardine-sized
@@ -73,7 +67,7 @@ function FishBuilder.build(species: Config.Fish): FishParts
 		math.clamp(MIN_LENGTH + species.maxWeight * LENGTH_PER_KG, MIN_LENGTH, MAX_LENGTH)
 	local height = length * 0.45
 	local width = length * 0.25
-	local color = RARITY_COLORS[species.rarity] or RARITY_COLORS.Common
+	local color = RarityColors[species.rarity] or RarityColors.Common
 
 	local model = Instance.new("Model")
 	model.Name = species.id

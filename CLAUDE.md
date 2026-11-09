@@ -42,6 +42,7 @@ a terminal opened before they were installed needs a restart to see them.
 | `src/shared/Logic/*` | `ReplicatedStorage.Shared.Logic` | Pure logic, no Roblox APIs |
 | `src/shared/Attributes.luau` | `ReplicatedStorage.Shared.Attributes` | Names of Player attributes (MaxO2, CurrentO2, Coins, Net as JSON) |
 | `src/shared/Remotes.luau` | `ReplicatedStorage.Shared.Remotes` | Names of RemoteEvents under `ReplicatedStorage.Remotes` |
+| `src/shared/RarityColors.luau` | `ReplicatedStorage.Shared.RarityColors` | Rarity → Color3, used by fish models and the market list |
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
 | `src/server/World/MapBuilder.luau` | | Greybox map built at runtime |
 | `src/server/Player/` | | `PlayerState` (attributes + net), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
@@ -65,6 +66,9 @@ a terminal opened before they were installed needs a restart to see them.
   UI buttons (`SellCatch`) and get a cooldown plus a zone/distance check.
 - Area checks (pools, sell zone) convert the position to the part's object
   space and call the pure `Logic/Bounds.contains`.
+- Terrain is smoothed on a 4-stud grid: anything built flush with the island
+  top sinks into the grass. Keep walkable props ≥ 1.5 studs above
+  `Config.World.islandTopY` (see the pools in `MapBuilder`).
 - Modules in `src/shared/Logic` must not touch Roblox APIs or `require`
   other modules — callers pass data in. This keeps them runnable in Lune.
 - In Roblox code, require by instance (`require(script.World.MapBuilder)`),

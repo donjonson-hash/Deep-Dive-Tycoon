@@ -107,63 +107,177 @@ local function buildTerrain()
 	)
 end
 
+-- Above-ground pools. Terrain is smoothed on a 4-stud grid, so anything flush
+-- with the grass sinks into it; the basin floor sits POOL_DECK_LIFT above the
+-- nominal island top and the walls rise from there. Stairs on the spawn side
+-- lead onto the wall top; getting out is a jump over the wall.
+local POOL_DECK_LIFT = 1.5
+local POOL_WALL_HEIGHT = 2.5
+local POOL_WALL_THICKNESS = 1
+local POOL_WATER_DEPTH = 2
+local POOL_STEP_DEPTH = 2
+local POOL_STEP_WIDTH = 6
+
+local TILE = Color3.fromRGB(190, 225, 240)
+local TILE_DARK = Color3.fromRGB(120, 170, 200)
+local COPING = Color3.fromRGB(245, 245, 245)
+local STEP = Color3.fromRGB(205, 205, 200)
+local DUCK = Color3.fromRGB(255, 220, 40)
+local BEAK = Color3.fromRGB(255, 130, 40)
+local CORALS = {
+	Color3.fromRGB(255, 120, 160),
+	Color3.fromRGB(255, 150, 80),
+	Color3.fromRGB(190, 110, 230),
+}
+
+local function addDuck(model: Model, x: number, waterTop: number, z: number)
+	local body = makePart(nil, {
+		Name = "DuckBody",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 2.4,
+		CFrame = CFrame.new(x, waterTop + 0.6, z),
+		Color = DUCK,
+		CanCollide = false,
+	}, model)
+	makePart(nil, {
+		Name = "DuckHead",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 1.4,
+		CFrame = body.CFrame * CFrame.new(0.9, 1.2, 0),
+		Color = DUCK,
+		CanCollide = false,
+	}, model)
+	makePart(nil, {
+		Name = "DuckBeak",
+		Size = Vector3.new(0.9, 0.35, 0.6),
+		CFrame = body.CFrame * CFrame.new(1.9, 1.1, 0),
+		Color = BEAK,
+		CanCollide = false,
+	}, model)
+end
+
+local function addCoral(model: Model, x: number, floorTop: number, z: number)
+	local spots = { Vector3.new(-3, 0, -3), Vector3.new(3.5, 0, -2), Vector3.new(-2, 0, 3.5) }
+	for i, offset in spots do
+		local height = 1.2 + i * 0.5
+		makePart(nil, {
+			Name = "Coral",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(height, 1.2, 1.2),
+			-- Cylinders lie along X; stand this one up.
+			CFrame = CFrame.new(x + offset.X, floorTop + height / 2, z + offset.Z)
+				* CFrame.Angles(0, 0, math.pi / 2),
+			Color = CORALS[(i - 1) % #CORALS + 1],
+			Material = Enum.Material.Pebble,
+			CanCollide = false,
+		}, model)
+	end
+end
+
+local POOL_DECOR: { [string]: (Model, number, number, number) -> () } = {
+	Kiddie = function(model, x, deckTop, z)
+		addDuck(model, x + 2, deckTop + POOL_WATER_DEPTH, z + 2)
+	end,
+	Coral = function(model, x, deckTop, z)
+		addCoral(model, x, deckTop, z)
+	end,
+}
+
 local function buildPool(pool: Config.Pool, index: number, count: number, parent: Instance)
 	-- Pools stand in a row on the island grass, centered on the spawn's X.
 	local topY = Config.World.islandTopY
 	local x = (index - (count + 1) / 2) * POOL_SPACING
 	local z = POOL_ROW_Z
+	local deckTop = topY + POOL_DECK_LIFT
+	local wallTop = deckTop + POOL_WALL_HEIGHT
+	local outer = POOL_SIZE + 2 * POOL_WALL_THICKNESS
 
 	local model = Instance.new("Model")
 	model.Name = pool.id
 	model:SetAttribute("PoolId", pool.id)
 
-	-- Deck flush with the grass so players walk straight in.
+	-- Basin floor, visibly above the grass.
 	makePart(nil, {
-		Name = "Platform",
-		Size = Vector3.new(POOL_SIZE + 2, 1, POOL_SIZE + 2),
-		CFrame = CFrame.new(x, topY - 0.5, z),
-		Color = WOOD,
-		Material = Enum.Material.WoodPlanks,
+		Name = "Floor",
+		Size = Vector3.new(outer, POOL_DECK_LIFT, outer),
+		CFrame = CFrame.new(x, topY + POOL_DECK_LIFT / 2, z),
+		Color = TILE_DARK,
+		Material = Enum.Material.Marble,
 	}, model)
+
+	-- Tiled walls with a white coping on top.
+	local wallY = deckTop + POOL_WALL_HEIGHT / 2
+	local wallOffset = POOL_SIZE / 2 + POOL_WALL_THICKNESS / 2
+	local function wall(size: Vector3, offset: Vector3)
+		makePart(nil, {
+			Name = "Wall",
+			Size = size,
+			CFrame = CFrame.new(x + offset.X, wallY, z + offset.Z),
+			Color = TILE,
+			Material = Enum.Material.Marble,
+		}, model)
+		makePart(nil, {
+			Name = "Coping",
+			Size = Vector3.new(size.X + 0.4, 0.3, size.Z + 0.4),
+			CFrame = CFrame.new(x + offset.X, wallTop + 0.15, z + offset.Z),
+			Color = COPING,
+			Material = Enum.Material.SmoothPlastic,
+		}, model)
+	end
+	for _, dz in { -1, 1 } do
+		wall(
+			Vector3.new(outer, POOL_WALL_HEIGHT, POOL_WALL_THICKNESS),
+			Vector3.new(0, 0, dz * wallOffset)
+		)
+	end
+	for _, dx in { -1, 1 } do
+		wall(
+			Vector3.new(POOL_WALL_THICKNESS, POOL_WALL_HEIGHT, POOL_SIZE),
+			Vector3.new(dx * wallOffset, 0, 0)
+		)
+	end
 
 	local water = makePart(nil, {
 		Name = "PoolWater",
-		Size = Vector3.new(POOL_SIZE, 2.5, POOL_SIZE),
-		CFrame = CFrame.new(x, topY + 1.25, z),
+		Size = Vector3.new(POOL_SIZE, POOL_WATER_DEPTH, POOL_SIZE),
+		CFrame = CFrame.new(x, deckTop + POOL_WATER_DEPTH / 2, z),
 		Color = POOL_WATER,
 		Material = Enum.Material.Glass,
-		Transparency = 0.5,
+		Transparency = 0.45,
 		CanCollide = false,
 	}, model)
 	water:SetAttribute("PoolId", pool.id)
 
-	-- Low rim on all four sides; 1 stud is stepped over automatically.
-	local rimHeight = 1
-	local rimY = topY + rimHeight / 2
-	for _, dz in { -1, 1 } do
+	-- Stairs from the grass up to the wall top, on the side facing the spawn.
+	local rise = wallTop + 0.3 - topY
+	local stepCount = math.ceil(rise)
+	local stepRise = rise / stepCount
+	local frontZ = z - outer / 2 - 0.2
+	for i = 1, stepCount do
+		local height = i * stepRise
 		makePart(nil, {
-			Name = "Rim",
-			Size = Vector3.new(POOL_SIZE + 2, rimHeight, 1),
-			CFrame = CFrame.new(x, rimY, z + dz * (POOL_SIZE / 2 + 0.5)),
-			Color = WOOD,
-			Material = Enum.Material.Wood,
+			Name = "Step",
+			Size = Vector3.new(POOL_STEP_WIDTH, height, POOL_STEP_DEPTH),
+			CFrame = CFrame.new(
+				x,
+				topY + height / 2,
+				frontZ - (stepCount - i) * POOL_STEP_DEPTH - POOL_STEP_DEPTH / 2
+			),
+			Color = STEP,
+			Material = Enum.Material.Concrete,
 		}, model)
 	end
-	for _, dx in { -1, 1 } do
-		makePart(nil, {
-			Name = "Rim",
-			Size = Vector3.new(1, rimHeight, POOL_SIZE),
-			CFrame = CFrame.new(x + dx * (POOL_SIZE / 2 + 0.5), rimY, z),
-			Color = WOOD,
-			Material = Enum.Material.Wood,
-		}, model)
+
+	local decorate = POOL_DECOR[pool.id]
+	if decorate then
+		decorate(model, x, deckTop, z)
 	end
 
 	local text = `{pool.name}\n+{pool.gainPerTick} O₂ / {Config.Oxygen.poolTickSeconds} с`
 	if pool.unlockMaxO2 > 0 then
 		text ..= `\nоткрывается с {pool.unlockMaxO2} O₂`
 	end
-	addLabel(water, text, 5)
+	addLabel(water, text, 6)
 
 	model.Parent = parent
 end
@@ -261,10 +375,11 @@ local function buildIsland(parent: Instance)
 		}, market)
 	end
 	addLabel(roof, "Рынок", 3)
+	-- Walking up to the stall opens the market: the zone starts ~20 studs out.
 	local sellZone = makePart(nil, {
 		Name = "SellZone",
-		Size = Vector3.new(16, 6, 10),
-		CFrame = CFrame.new(0, topY + 3, stallZ + 5),
+		Size = Vector3.new(30, 8, 26),
+		CFrame = CFrame.new(0, topY + 4, stallZ + 9),
 		Transparency = 1,
 		CanCollide = false,
 		CanQuery = false,
