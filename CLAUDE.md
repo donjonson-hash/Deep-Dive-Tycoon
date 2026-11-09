@@ -40,9 +40,13 @@ a terminal opened before they were installed needs a restart to see them.
 | --- | --- | --- |
 | `src/shared/Config.luau` | `ReplicatedStorage.Shared.Config` | All balance numbers |
 | `src/shared/Logic/*` | `ReplicatedStorage.Shared.Logic` | Pure logic, no Roblox APIs |
+| `src/shared/Attributes.luau` | `ReplicatedStorage.Shared.Attributes` | Names of Player attributes (MaxO2, CurrentO2, Coins) |
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
 | `src/server/World/MapBuilder.luau` | | Greybox map built at runtime |
+| `src/server/Player/` | | `PlayerState` (attributes), `OxygenService` (drain/refill tick) |
+| `src/server/Fish/` | | `FishBuilder` (greybox model), `FishService` (spawn + swim) |
 | `src/client/` | `StarterPlayerScripts.Client` (LocalScript) | UI controllers |
+| `src/client/Hud/` | | `DepthHud`, `StatsHud` (O₂ bar + coins) |
 | `tests/` | not synced | Lune specs for `src/shared` |
 
 ## Conventions
@@ -50,6 +54,8 @@ a terminal opened before they were installed needs a restart to see them.
 - `--!strict` at the top of every file; tabs; StyLua formatting.
 - Server is authoritative for oxygen, fish, coins, market. Clients send
   intents through Remotes; server validates (distance, rate limit).
+- Server → client display state goes through Player attributes named in
+  `shared/Attributes`; the HUD listens to `GetAttributeChangedSignal`.
 - Modules in `src/shared/Logic` must not touch Roblox APIs or `require`
   other modules — callers pass data in. This keeps them runnable in Lune.
 - In Roblox code, require by instance (`require(script.World.MapBuilder)`),

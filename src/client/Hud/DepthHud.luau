@@ -10,8 +10,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Depth = require(Shared:WaitForChild("Logic"):WaitForChild("Depth"))
 
-local SURFACE_TOLERANCE = 1 -- meters; treat bobbing at the surface as "on the surface"
-
 local DepthHud = {}
 
 local function createLabel(parent: Instance): TextLabel
@@ -59,7 +57,7 @@ function DepthHud.start()
 
 		local depth =
 			Depth.toMeters(root.Position.Y, Config.World.surfaceY, Config.World.studsPerMeter)
-		if depth < SURFACE_TOLERANCE then
+		if depth < Config.World.surfaceToleranceMeters then
 			setText("На поверхности")
 			return
 		end

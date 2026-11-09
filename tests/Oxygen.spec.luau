@@ -27,6 +27,12 @@ return function(t: TestKit.TestKit)
 		t:eq(dead, false)
 	end)
 
+	t:test("refill at the surface stops at max", function()
+		t:eq(Oxygen.refill(20, 30, 10, 0.5), 25)
+		t:eq(Oxygen.refill(28, 30, 10, 0.5), 30)
+		t:eq(Oxygen.refill(30, 30, 10, 1), 30)
+	end)
+
 	t:test("warning levels at 25 % and 10 %", function()
 		t:eq(Oxygen.warningLevel(100, 100, 0.25, 0.1), "Ok")
 		t:eq(Oxygen.warningLevel(26, 100, 0.25, 0.1), "Ok")

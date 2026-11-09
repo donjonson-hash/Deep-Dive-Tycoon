@@ -17,6 +17,11 @@ function Oxygen.spend(current: number, cost: number): (number, boolean)
 	return nextValue, nextValue <= 0
 end
 
+-- Refills at the surface over dt seconds, never above max.
+function Oxygen.refill(current: number, max: number, perSecond: number, dt: number): number
+	return math.min(max, current + perSecond * dt)
+end
+
 function Oxygen.warningLevel(
 	current: number,
 	max: number,

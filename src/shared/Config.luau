@@ -40,13 +40,31 @@ Config.World = {
 	oceanSize = 800, -- studs, square
 	islandRadius = 50, -- studs
 	islandTopY = 6, -- studs
+	surfaceToleranceMeters = 1, -- bobbing this close to the surface counts as "on the surface"
 }
 
 Config.Oxygen = {
 	startingMaxO2 = 30,
+	tickSeconds = 0.25, -- server depth/oxygen check interval (docs/PROJECT.md)
+	surfaceRefillPerSecond = 10, -- assumption: a starting tank refills in 3 s at the surface
 	poolTickSeconds = 1, -- assumption: pools pay out once per second
 	warningFraction = 0.25, -- O2 bar turns red
 	criticalFraction = 0.10, -- heartbeat sound
+}
+
+Config.Economy = {
+	startingCoins = 0,
+}
+
+-- Live fish swimming in the ocean. They are the targets for catching, so counts
+-- and speed are balance, not decoration.
+Config.FishSpawn = {
+	perSpecies = 4, -- fish of each species alive at once
+	swimSpeed = 6, -- studs per second
+	minRadius = 60, -- studs from the island center; keeps fish out of the island
+	maxRadius = 220,
+	surfaceMarginMeters = 1, -- fish never break the surface
+	floorMarginMeters = 2, -- or swim into the sand
 }
 
 Config.Inventory = {
