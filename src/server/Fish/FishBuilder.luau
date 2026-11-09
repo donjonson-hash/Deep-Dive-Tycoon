@@ -19,8 +19,10 @@ local RARITY_COLORS: { [string]: Color3 } = {
 }
 local EYE = Color3.fromRGB(20, 20, 20)
 
-local MIN_LENGTH = 1.5 -- studs
-local MAX_LENGTH = 5
+local MIN_LENGTH = 3 -- studs; sardine-sized
+local MAX_LENGTH = 8
+local LENGTH_PER_KG = 1.5
+local LABEL_DISTANCE = 80 -- studs; the price tag fades beyond this
 
 local function makePart(className: string, props: { [string]: any }, parent: Instance): BasePart
 	local part = Instance.new(className :: any) :: BasePart
@@ -38,6 +40,28 @@ local function makePart(className: string, props: { [string]: any }, parent: Ins
 	return part
 end
 
+-- Name and O2 price above the fish, so the player can decide before diving closer.
+local function addPriceTag(body: BasePart, species: Config.Fish, height: number)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "PriceTag"
+	gui.Size = UDim2.fromOffset(160, 44)
+	gui.StudsOffset = Vector3.new(0, height, 0)
+	gui.MaxDistance = LABEL_DISTANCE
+	gui.LightInfluence = 0
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.TextStrokeTransparency = 0.3
+	label.Text = `{species.name}\n{species.catchCost} O₂`
+	label.Parent = gui
+
+	gui.Parent = body
+end
+
 export type FishParts = {
 	model: Model,
 	body: BasePart,
@@ -45,7 +69,8 @@ export type FishParts = {
 }
 
 function FishBuilder.build(species: Config.Fish): FishParts
-	local length = math.clamp(MIN_LENGTH + species.maxWeight, MIN_LENGTH, MAX_LENGTH)
+	local length =
+		math.clamp(MIN_LENGTH + species.maxWeight * LENGTH_PER_KG, MIN_LENGTH, MAX_LENGTH)
 	local height = length * 0.45
 	local width = length * 0.25
 	local color = RARITY_COLORS[species.rarity] or RARITY_COLORS.Common
@@ -62,6 +87,7 @@ function FishBuilder.build(species: Config.Fish): FishParts
 		Color = color,
 	}, model)
 	model.PrimaryPart = body
+	addPriceTag(body, species, height)
 
 	-- Tail: a wedge behind the body, thin edge toward the body. FishService swings it.
 	local tail = makePart("WedgePart", {

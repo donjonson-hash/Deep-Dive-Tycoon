@@ -43,7 +43,7 @@ a terminal opened before they were installed needs a restart to see them.
 | `src/shared/Attributes.luau` | `ReplicatedStorage.Shared.Attributes` | Names of Player attributes (MaxO2, CurrentO2, Coins) |
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
 | `src/server/World/MapBuilder.luau` | | Greybox map built at runtime |
-| `src/server/Player/` | | `PlayerState` (attributes), `OxygenService` (drain/refill tick) |
+| `src/server/Player/` | | `PlayerState` (attributes), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
 | `src/server/Fish/` | | `FishBuilder` (greybox model), `FishService` (spawn + swim) |
 | `src/client/` | `StarterPlayerScripts.Client` (LocalScript) | UI controllers |
 | `src/client/Hud/` | | `DepthHud`, `StatsHud` (O₂ bar + coins) |
