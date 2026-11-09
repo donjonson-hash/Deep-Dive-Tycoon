@@ -665,12 +665,16 @@ local function buildMarket(parent: Instance)
 	)
 
 	-- Standing in SellZone opens the market UI; MarketService checks the same
-	-- zone before paying out. About 14 studs of sand in front of the counter,
-	-- reaching down to ground level below the plinth.
+	-- zone before paying out. The zone is the awning's footprint: from the
+	-- counter to AWNING_MARGIN studs past the awning poles, the kiosk's full
+	-- width, from the sand up to the roof.
+	local AWNING_MARGIN = 4
+	local zoneNear = -5 -- counter front face is at z = -5.5
+	local zoneFar = -13 - AWNING_MARGIN -- poles stand at z = -13
 	local sellZone = place(nil, {
 		Name = "SellZone",
-		Size = Vector3.new(26, 10, 16),
-		CFrame = CFrame.new(0, 2 - MARKET_LIFT, -13),
+		Size = Vector3.new(26, 12, zoneNear - zoneFar),
+		CFrame = CFrame.new(0, 3 - MARKET_LIFT, (zoneNear + zoneFar) / 2),
 		Transparency = 1,
 		CanCollide = false,
 		CanQuery = false,
