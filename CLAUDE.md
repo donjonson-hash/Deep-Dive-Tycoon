@@ -46,7 +46,7 @@ a terminal opened before they were installed needs a restart to see them.
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
 | `src/server/World/MapBuilder.luau` | | Greybox map built at runtime |
 | `src/server/Player/` | | `PlayerState` (attributes + net), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
-| `src/server/Fish/` | | `FishBuilder` (greybox model), `FishService` (spawn, swim, prompt, respawn), `CatchService` (take a fish) |
+| `src/server/Fish/` | | `FishBuilder` (one part recipe per species; tail is a Model pivoted on its hinge), `FishService` (spawn, swim, prompt, respawn), `CatchService` (take a fish) |
 | `src/server/Market/MarketService.luau` | | `SellCatch` remote: zone + cooldown check, payout |
 | `src/client/` | `StarterPlayerScripts.Client` (LocalScript) | UI controllers |
 | `src/client/Hud/` | | `DepthHud`, `StatsHud` (O₂ bar, coins, net) |

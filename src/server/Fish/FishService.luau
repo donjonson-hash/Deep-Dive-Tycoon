@@ -31,8 +31,6 @@ type FishState = {
 	minY: number,
 	maxY: number,
 	phase: number, -- so fish do not bob and wag in lockstep
-	tailPivotZ: number, -- half body length: where the tail hinges
-	tailHalfLength: number,
 	caught: boolean,
 }
 
@@ -112,8 +110,6 @@ spawnFish = function(species: Config.Fish, minY: number, maxY: number)
 		minY = minY,
 		maxY = maxY,
 		phase = rng:NextNumber() * 10,
-		tailPivotZ = parts.body.Size.Z / 2,
-		tailHalfLength = parts.tail.Size.Z / 2,
 		caught = false,
 	}
 	addPrompt(state)
@@ -142,12 +138,10 @@ local function step(dt: number)
 		local bodyCFrame = f.heading + f.position + Vector3.new(0, bob, 0)
 		f.parts.model:PivotTo(bodyCFrame)
 
-		-- Swing the tail around its hinge at the back of the body.
+		-- Swing the tail around the hinge the recipe reported; the tail model's
+		-- pivot sits on that hinge.
 		local wag = FishMotion.tailAngle(time, TAIL_WAG_RADIANS, TAIL_WAG_FREQUENCY)
-		f.parts.tail.CFrame = bodyCFrame
-			* CFrame.new(0, 0, f.tailPivotZ)
-			* CFrame.Angles(0, wag, 0)
-			* CFrame.new(0, 0, f.tailHalfLength)
+		f.parts.tail:PivotTo(bodyCFrame * f.parts.tailHinge * CFrame.Angles(0, wag, 0))
 	end
 end
 

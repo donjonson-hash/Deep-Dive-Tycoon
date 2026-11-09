@@ -665,12 +665,12 @@ local function buildMarket(parent: Instance)
 	)
 
 	-- Standing in SellZone opens the market UI; MarketService checks the same
-	-- zone before paying out. About 10 studs of sand in front of the counter,
+	-- zone before paying out. About 14 studs of sand in front of the counter,
 	-- reaching down to ground level below the plinth.
 	local sellZone = place(nil, {
 		Name = "SellZone",
-		Size = Vector3.new(20, 10, 12),
-		CFrame = CFrame.new(0, 2 - MARKET_LIFT, -11),
+		Size = Vector3.new(26, 10, 16),
+		CFrame = CFrame.new(0, 2 - MARKET_LIFT, -13),
 		Transparency = 1,
 		CanCollide = false,
 		CanQuery = false,
