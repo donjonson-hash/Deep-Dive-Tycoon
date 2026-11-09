@@ -154,6 +154,14 @@ local function buildTerrain(): number
 	local waterHeight = world.surfaceY - floorY
 	local half = world.oceanSize / 2
 
+	-- Clear tropical lagoon: high transparency lets divers see the reef from
+	-- afar; the turquoise color tints the underwater fog.
+	terrain.WaterColor = Color3.fromRGB(30, 140, 160)
+	terrain.WaterTransparency = 0.85
+	terrain.WaterReflectance = 0.6
+	terrain.WaterWaveSize = 0.15
+	terrain.WaterWaveSpeed = 8
+
 	for x = -half, half - TERRAIN_TILE, TERRAIN_TILE do
 		for z = -half, half - TERRAIN_TILE, TERRAIN_TILE do
 			local centerX = x + TERRAIN_TILE / 2

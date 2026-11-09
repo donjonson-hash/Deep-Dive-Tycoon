@@ -45,7 +45,10 @@ a terminal opened before they were installed needs a restart to see them.
 | `src/shared/RarityColors.luau` | `ReplicatedStorage.Shared.RarityColors` | Rarity → Color3, used by fish models and the market list |
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
 | `src/server/World/MapBuilder.luau` | | Greybox map built at runtime (terrain, island, pools, kiosk, pier, palms) |
-| `src/server/World/SeabedBuilder.luau` | | Seeded rock/coral/seaweed clusters on the lagoon seabed |
+| `src/server/World/SeabedBuilder.luau` | | Seeded reef patches (13 coral shapes, rocks), giant kelp stalks, bubble vents |
+| `src/shared/KelpRig.luau` | `ReplicatedStorage.Shared.KelpRig` | Kelp stalk geometry and sway constants, shared by server and client |
+| `src/client/World/KelpSway.luau` | | Client-only kelp animation (tag + attributes, BulkMoveTo, distance cull) |
+| `src/client/World/UnderwaterFx.luau` | | Client-only underwater grade, blur and marine snow |
 | `src/server/World/WreckBuilder.luau` | | Sunken ship on the seabed (ship space + root CFrame, like the kiosk) |
 | `src/server/Eggs/EggService.luau` | | Nests on the seabed: egg model, odds label, buy prompt, restock |
 | `src/server/Player/` | | `PlayerState` (attributes + net), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
@@ -76,9 +79,13 @@ a terminal opened before they were installed needs a restart to see them.
   entry with a ring and a `FishBuilder` recipe per new species.
 - Scenery scale: a Roblox character is ~5 studs ≈ 1.7 m at
   `World.studsPerMeter` = 3. Seabed props and the wreck are written in real
-  meters and converted with that constant, so they match the player. Fish
-  are the exception: `FishBuilder.SCALE` = 2 on purpose (owner's call), for
+  meters and converted with that constant, so they match the player; corals
+  use the upper end of real colony sizes (2–4 m), kelp 12–22 m. Fish are the
+  exception: `FishBuilder.SCALE` = 2 on purpose (owner's call), for
   readability.
+- Decorative motion runs on the client: the server builds the parts, tags
+  the model and stores what the client needs as attributes; a client module
+  poses them (see kelp). Never animate decor from the server.
 - Terrain is smoothed on a 4-stud grid: anything built flush with the island
   top sinks into the sand. Keep walkable props ≥ 3 studs above
   `Config.World.islandTopY` (see `POOL_LIFT` / `MARKET_LIFT` in `MapBuilder`).
