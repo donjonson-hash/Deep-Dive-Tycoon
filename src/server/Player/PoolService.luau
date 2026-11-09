@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Bounds = require(ReplicatedStorage.Shared.Logic.Bounds)
 local Pools = require(ReplicatedStorage.Shared.Logic.Pools)
 local PlayerState = require(script.Parent.PlayerState)
 
@@ -36,9 +37,9 @@ end
 local function collectAreas(): { PoolArea }
 	local found: { PoolArea } = {}
 	local map = Workspace:FindFirstChild("Map")
-	local pools = if map then map:FindFirstChild("Pools", true) else nil
+	local pools = if map then map:FindFirstChild("Pools") else nil
 	if not pools then
-		warn("[PoolService] No Map.Pier.Pools folder; pools will not train oxygen")
+		warn("[PoolService] No Map.Pools folder; pools will not train oxygen")
 		return found
 	end
 	for _, water in pools:GetDescendants() do
@@ -56,12 +57,9 @@ local function collectAreas(): { PoolArea }
 end
 
 local function contains(water: BasePart, position: Vector3): boolean
-	local local_ = water.CFrame:PointToObjectSpace(position)
+	local p = water.CFrame:PointToObjectSpace(position)
 	local half = water.Size / 2
-	return math.abs(local_.X) <= half.X
-		and math.abs(local_.Z) <= half.Z
-		and local_.Y >= -half.Y
-		and local_.Y <= half.Y + VERTICAL_MARGIN
+	return Bounds.contains(p.X, p.Y, p.Z, half.X, half.Y, half.Z, VERTICAL_MARGIN)
 end
 
 local function poolAt(position: Vector3): Config.Pool?

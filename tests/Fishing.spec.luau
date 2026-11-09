@@ -49,6 +49,12 @@ return function(t: TestKit.TestKit)
 		t:eq(roll("Trench", 0.5), nil)
 	end)
 
+	t:test("fish needs at least its catch cost in oxygen, exactly enough is fine", function()
+		t:eq(Fishing.canAfford(10, 10), true)
+		t:eq(Fishing.canAfford(99, 100), false)
+		t:eq(Fishing.canAfford(0, 0), true)
+	end)
+
 	t:test("weight stays within the species range", function()
 		local sardine = Config.Fish[1]
 		t:eq(Fishing.rollWeight(sardine, 0), sardine.minWeight)

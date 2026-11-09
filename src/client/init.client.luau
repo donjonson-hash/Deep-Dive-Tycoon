@@ -3,6 +3,8 @@
 
 local DepthHud = require(script.Hud.DepthHud)
 local StatsHud = require(script.Hud.StatsHud)
+local MarketUi = require(script.Market.MarketUi)
 
 DepthHud.start()
 StatsHud.start()
+MarketUi.start()

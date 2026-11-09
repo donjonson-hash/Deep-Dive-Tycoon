@@ -40,13 +40,16 @@ a terminal opened before they were installed needs a restart to see them.
 | --- | --- | --- |
 | `src/shared/Config.luau` | `ReplicatedStorage.Shared.Config` | All balance numbers |
 | `src/shared/Logic/*` | `ReplicatedStorage.Shared.Logic` | Pure logic, no Roblox APIs |
-| `src/shared/Attributes.luau` | `ReplicatedStorage.Shared.Attributes` | Names of Player attributes (MaxO2, CurrentO2, Coins) |
+| `src/shared/Attributes.luau` | `ReplicatedStorage.Shared.Attributes` | Names of Player attributes (MaxO2, CurrentO2, Coins, Net as JSON) |
+| `src/shared/Remotes.luau` | `ReplicatedStorage.Shared.Remotes` | Names of RemoteEvents under `ReplicatedStorage.Remotes` |
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
 | `src/server/World/MapBuilder.luau` | | Greybox map built at runtime |
-| `src/server/Player/` | | `PlayerState` (attributes), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
-| `src/server/Fish/` | | `FishBuilder` (greybox model), `FishService` (spawn + swim) |
+| `src/server/Player/` | | `PlayerState` (attributes + net), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
+| `src/server/Fish/` | | `FishBuilder` (greybox model), `FishService` (spawn, swim, prompt, respawn), `CatchService` (take a fish) |
+| `src/server/Market/MarketService.luau` | | `SellCatch` remote: zone + cooldown check, payout |
 | `src/client/` | `StarterPlayerScripts.Client` (LocalScript) | UI controllers |
-| `src/client/Hud/` | | `DepthHud`, `StatsHud` (O₂ bar + coins) |
+| `src/client/Hud/` | | `DepthHud`, `StatsHud` (O₂ bar, coins, net) |
+| `src/client/Market/MarketUi.luau` | | Market panel shown inside `Map.Market.SellZone` |
 | `tests/` | not synced | Lune specs for `src/shared` |
 
 ## Conventions
@@ -55,7 +58,13 @@ a terminal opened before they were installed needs a restart to see them.
 - Server is authoritative for oxygen, fish, coins, market. Clients send
   intents through Remotes; server validates (distance, rate limit).
 - Server → client display state goes through Player attributes named in
-  `shared/Attributes`; the HUD listens to `GetAttributeChangedSignal`.
+  `shared/Attributes`; the HUD listens to `GetAttributeChangedSignal`. Tables
+  (the net) travel as JSON strings.
+- Interactions with world objects (fish) use `ProximityPrompt`: its distance
+  check runs on the server, so no extra Remote is needed. Remotes are for
+  UI buttons (`SellCatch`) and get a cooldown plus a zone/distance check.
+- Area checks (pools, sell zone) convert the position to the part's object
+  space and call the pure `Logic/Bounds.contains`.
 - Modules in `src/shared/Logic` must not touch Roblox APIs or `require`
   other modules — callers pass data in. This keeps them runnable in Lune.
 - In Roblox code, require by instance (`require(script.World.MapBuilder)`),

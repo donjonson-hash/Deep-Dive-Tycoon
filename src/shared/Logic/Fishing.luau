@@ -68,6 +68,12 @@ function Fishing.rollFish<F>(
 	return nil
 end
 
+-- A fish can be taken while the diver holds at least its catchCost of oxygen.
+-- Nothing is spent (decision from 2026-11-09): the cost is a depth gate, not a price.
+function Fishing.canAfford(currentO2: number, catchCost: number): boolean
+	return currentO2 >= catchCost
+end
+
 -- Weight of a caught fish in kg, rounded to 0.01.
 function Fishing.rollWeight(fish: FishLike, roll: number): number
 	local weight = fish.minWeight + (fish.maxWeight - fish.minWeight) * roll

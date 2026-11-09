@@ -11,6 +11,9 @@ local specs: { { name: string, run: (TestKit.TestKit) -> () } } = {
 	{ name = "Pools", run = require("./Pools.spec") },
 	{ name = "Fishing", run = require("./Fishing.spec") },
 	{ name = "FishMotion", run = require("./FishMotion.spec") },
+	{ name = "Net", run = require("./Net.spec") },
+	{ name = "Market", run = require("./Market.spec") },
+	{ name = "Bounds", run = require("./Bounds.spec") },
 }
 
 local kit = TestKit.new()

@@ -56,7 +56,7 @@ local function addPriceTag(body: BasePart, species: Config.Fish, height: number)
 	label.Font = Enum.Font.GothamBold
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.3
-	label.Text = `{species.name}\n{species.catchCost} O₂`
+	label.Text = `{species.name}\nнужно {species.catchCost} O₂`
 	label.Parent = gui
 
 	gui.Parent = body

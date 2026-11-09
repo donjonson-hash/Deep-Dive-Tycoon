@@ -17,7 +17,9 @@ local STALL = Color3.fromRGB(220, 90, 60)
 local PIER_LENGTH = 120
 local PIER_WIDTH = 12
 local POOL_SIZE = 10
-local POOL_SPACING = 30
+local POOL_SPACING = 30 -- center to center, pools in a row on the island
+local POOL_ROW_Z = 32 -- the pool row sits behind the spawn, the market in front
+local MARKET_Z = -30
 local TERRAIN_TILE = 200 -- fill the ocean in tiles to stay under terrain write limits
 
 local function makePart(className: string?, props: { [string]: any }, parent: Instance): BasePart
@@ -105,26 +107,21 @@ local function buildTerrain()
 	)
 end
 
-local function buildPool(
-	pool: Config.Pool,
-	index: number,
-	pierStartX: number,
-	deckY: number,
-	parent: Instance
-)
-	-- Pools sit on platforms beside the pier, alternating sides, so the walkway stays clear.
-	local side = if index % 2 == 1 then 1 else -1
-	local x = pierStartX + 25 + (index - 1) * POOL_SPACING
-	local z = side * (PIER_WIDTH / 2 + POOL_SIZE / 2 + 1)
+local function buildPool(pool: Config.Pool, index: number, count: number, parent: Instance)
+	-- Pools stand in a row on the island grass, centered on the spawn's X.
+	local topY = Config.World.islandTopY
+	local x = (index - (count + 1) / 2) * POOL_SPACING
+	local z = POOL_ROW_Z
 
 	local model = Instance.new("Model")
 	model.Name = pool.id
 	model:SetAttribute("PoolId", pool.id)
 
+	-- Deck flush with the grass so players walk straight in.
 	makePart(nil, {
 		Name = "Platform",
 		Size = Vector3.new(POOL_SIZE + 2, 1, POOL_SIZE + 2),
-		CFrame = CFrame.new(x, deckY - 0.5, z),
+		CFrame = CFrame.new(x, topY - 0.5, z),
 		Color = WOOD,
 		Material = Enum.Material.WoodPlanks,
 	}, model)
@@ -132,7 +129,7 @@ local function buildPool(
 	local water = makePart(nil, {
 		Name = "PoolWater",
 		Size = Vector3.new(POOL_SIZE, 2.5, POOL_SIZE),
-		CFrame = CFrame.new(x, deckY + 1.25, z),
+		CFrame = CFrame.new(x, topY + 1.25, z),
 		Color = POOL_WATER,
 		Material = Enum.Material.Glass,
 		Transparency = 0.5,
@@ -140,22 +137,23 @@ local function buildPool(
 	}, model)
 	water:SetAttribute("PoolId", pool.id)
 
-	-- Low rim on the three outer sides; the side facing the pier stays open.
+	-- Low rim on all four sides; 1 stud is stepped over automatically.
 	local rimHeight = 1
-	local rimY = deckY + rimHeight / 2
-	local outerZ = z + side * (POOL_SIZE / 2 + 0.5)
-	makePart(nil, {
-		Name = "RimOuter",
-		Size = Vector3.new(POOL_SIZE + 2, rimHeight, 1),
-		CFrame = CFrame.new(x, rimY, outerZ),
-		Color = WOOD,
-		Material = Enum.Material.Wood,
-	}, model)
+	local rimY = topY + rimHeight / 2
+	for _, dz in { -1, 1 } do
+		makePart(nil, {
+			Name = "Rim",
+			Size = Vector3.new(POOL_SIZE + 2, rimHeight, 1),
+			CFrame = CFrame.new(x, rimY, z + dz * (POOL_SIZE / 2 + 0.5)),
+			Color = WOOD,
+			Material = Enum.Material.Wood,
+		}, model)
+	end
 	for _, dx in { -1, 1 } do
 		makePart(nil, {
-			Name = "RimSide",
-			Size = Vector3.new(1, rimHeight, POOL_SIZE + 1),
-			CFrame = CFrame.new(x + dx * (POOL_SIZE / 2 + 0.5), rimY, z + side * 0.5),
+			Name = "Rim",
+			Size = Vector3.new(1, rimHeight, POOL_SIZE),
+			CFrame = CFrame.new(x + dx * (POOL_SIZE / 2 + 0.5), rimY, z),
 			Color = WOOD,
 			Material = Enum.Material.Wood,
 		}, model)
@@ -201,13 +199,6 @@ local function buildPier(parent: Instance)
 		end
 	end
 
-	local pools = Instance.new("Folder")
-	pools.Name = "Pools"
-	for index, pool in Config.Pools do
-		buildPool(pool, index, pierStartX, deckY, pools)
-	end
-	pools.Parent = pier
-
 	-- Diving board at the far end: the way into the ocean.
 	local board = makePart(nil, {
 		Name = "DivingBoard",
@@ -234,10 +225,18 @@ local function buildIsland(parent: Instance)
 	spawn.Duration = 0 -- no spawn force field
 	spawn.Parent = parent
 
-	-- Market stall: visual only for now; selling arrives with the market feature.
+	local pools = Instance.new("Folder")
+	pools.Name = "Pools"
+	for index, pool in Config.Pools do
+		buildPool(pool, index, #Config.Pools, pools)
+	end
+	pools.Parent = parent
+
+	-- Market stall. Standing in SellZone opens the market UI; MarketService
+	-- checks the same zone before paying out.
 	local market = Instance.new("Model")
 	market.Name = "Market"
-	local stallZ = -25
+	local stallZ = MARKET_Z
 	makePart(nil, {
 		Name = "Counter",
 		Size = Vector3.new(14, 3, 4),

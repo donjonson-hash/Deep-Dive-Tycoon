@@ -7,4 +7,6 @@ return {
 	MaxO2 = "MaxO2",
 	CurrentO2 = "CurrentO2",
 	Coins = "Coins",
+	-- JSON array of { id: string, weight: number }: the fish in the player's net.
+	Net = "Net",
 }

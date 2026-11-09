@@ -2,6 +2,7 @@
 -- Top-left panel: oxygen bar and coin count. Reads the Player attributes the
 -- server writes (shared/Attributes) and never computes game state itself.
 
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -9,11 +10,14 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Attributes = require(Shared:WaitForChild("Attributes"))
-local Oxygen = require(Shared:WaitForChild("Logic"):WaitForChild("Oxygen"))
+local Logic = Shared:WaitForChild("Logic")
+local Oxygen = require(Logic:WaitForChild("Oxygen"))
+local Net = require(Logic:WaitForChild("Net"))
 
 local PANEL = Color3.fromRGB(10, 30, 60)
 local BAR_BACK = Color3.fromRGB(5, 15, 30)
 local COIN = Color3.fromRGB(255, 200, 40)
+local NET_FULL = Color3.fromRGB(255, 120, 120)
 local BAR_COLORS: { [Oxygen.WarningLevel]: Color3 } = {
 	Ok = Color3.fromRGB(70, 180, 255),
 	Low = Color3.fromRGB(255, 170, 40),
@@ -26,6 +30,7 @@ type Ui = {
 	o2Fill: Frame,
 	o2Text: TextLabel,
 	coinsText: TextLabel,
+	netText: TextLabel,
 }
 
 local function round(parent: GuiObject, radius: number)
@@ -55,7 +60,7 @@ local function build(parent: Instance): Ui
 
 	local panel = Instance.new("Frame")
 	panel.Position = UDim2.fromOffset(12, 12)
-	panel.Size = UDim2.fromOffset(240, 84)
+	panel.Size = UDim2.fromOffset(240, 118)
 	panel.BackgroundColor3 = PANEL
 	panel.BackgroundTransparency = 0.3
 	panel.Parent = gui
@@ -116,8 +121,25 @@ local function build(parent: Instance): Ui
 		Text = "0",
 	}, panel)
 
+	-- Net row: how many fish are carried and how much they weigh.
+	local netText = makeLabel({
+		Name = "NetText",
+		Position = UDim2.fromOffset(4, 74),
+		Size = UDim2.new(1, -4, 0, 24),
+		Text = "",
+	}, panel)
+
 	gui.Parent = parent
-	return { o2Fill = fill, o2Text = o2Text, coinsText = coinsText }
+	return { o2Fill = fill, o2Text = o2Text, coinsText = coinsText, netText = netText }
+end
+
+local function readNet(player: Player): { Net.ItemLike }
+	local raw = player:GetAttribute(Attributes.Net)
+	if type(raw) ~= "string" or raw == "" then
+		return {}
+	end
+	local ok, items = pcall(HttpService.JSONDecode, HttpService, raw)
+	return if ok and type(items) == "table" then items else {}
 end
 
 local function readNumber(player: Player, name: string): number
@@ -147,6 +169,19 @@ function StatsHud.start()
 		TweenService:Create(ui.o2Fill, tweenInfo, { Size = UDim2.fromScale(fraction, 1) }):Play()
 		ui.o2Text.Text = `{math.ceil(current)} / {max}`
 		ui.coinsText.Text = tostring(math.floor(coins))
+
+		local net = readNet(player)
+		local capacity = Config.Inventory.netCapacity
+		local full = Net.isFull(#net, capacity)
+		local weight = Net.totalWeight(net)
+		ui.netText.Text = string.format(
+			"Садок %d/%d · %.1f кг%s",
+			#net,
+			capacity,
+			weight,
+			if full then " · полон" else ""
+		)
+		ui.netText.TextColor3 = if full then NET_FULL else Color3.new(1, 1, 1)
 	end
 
 	for _, name in Attributes do

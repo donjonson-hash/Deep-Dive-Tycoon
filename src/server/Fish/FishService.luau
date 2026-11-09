@@ -1,7 +1,7 @@
 --!strict
--- Spawns greybox fish for every species in its zone and swims them around the
--- island. The server moves the fish so catching can later be validated against
--- real positions; clients only see the replicated models.
+-- Spawns greybox fish for every species in its zone, swims them around the
+-- island and lets players take them through a ProximityPrompt. The server moves
+-- the fish so the prompt's distance check is against real positions.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -10,10 +10,11 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Shared.Config)
 local FishMotion = require(ReplicatedStorage.Shared.Logic.FishMotion)
 local FishBuilder = require(script.Parent.FishBuilder)
+local CatchService = require(script.Parent.CatchService)
 
 local FishService = {}
 
--- Look-and-feel constants; the numbers that affect gameplay live in Config.FishSpawn.
+-- Look-and-feel constants; the numbers that affect gameplay live in Config.
 local TURN_RATE = 2 -- fraction of the remaining turn completed per second
 local ARRIVE_DISTANCE = 2 -- studs; pick a new target this close to the current one
 local BOB_AMPLITUDE = 0.3 -- studs
@@ -22,6 +23,7 @@ local TAIL_WAG_RADIANS = 0.5
 local TAIL_WAG_FREQUENCY = 2.5 -- Hz
 
 type FishState = {
+	species: Config.Fish,
 	parts: FishBuilder.FishParts,
 	position: Vector3,
 	heading: CFrame, -- rotation only; position is applied separately
@@ -31,10 +33,12 @@ type FishState = {
 	phase: number, -- so fish do not bob and wag in lockstep
 	tailPivotZ: number, -- half body length: where the tail hinges
 	tailHalfLength: number,
+	caught: boolean,
 }
 
 local rng = Random.new()
 local fish: { FishState } = {}
+local folder: Folder? = nil
 
 local function pickTarget(minY: number, maxY: number): Vector3
 	local spawn = Config.FishSpawn
@@ -59,11 +63,48 @@ local function zoneById(zoneId: string): Config.Zone?
 	return nil
 end
 
-local function spawnFish(species: Config.Fish, minY: number, maxY: number, parent: Instance)
+local spawnFish: (species: Config.Fish, minY: number, maxY: number) -> ()
+
+local function onCaught(player: Player, state: FishState)
+	if state.caught or not CatchService.tryCatch(player, state.species) then
+		return
+	end
+	state.caught = true
+
+	local index = table.find(fish, state)
+	if index then
+		table.remove(fish, index)
+	end
+	state.parts.model:Destroy()
+
+	-- The ocean refills: same species, same zone, a bit later.
+	task.delay(Config.FishSpawn.respawnSeconds, function()
+		if folder and folder.Parent then
+			spawnFish(state.species, state.minY, state.maxY)
+		end
+	end)
+end
+
+local function addPrompt(state: FishState)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "CatchPrompt"
+	prompt.ObjectText = state.species.name
+	prompt.ActionText = `Поймать · нужно {state.species.catchCost} O₂`
+	prompt.HoldDuration = Config.Catching.holdSeconds
+	prompt.MaxActivationDistance = Config.Catching.reachStuds
+	prompt.RequiresLineOfSight = false
+	prompt.Triggered:Connect(function(player)
+		onCaught(player, state)
+	end)
+	prompt.Parent = state.parts.body
+end
+
+spawnFish = function(species: Config.Fish, minY: number, maxY: number)
 	local parts = FishBuilder.build(species)
 	local position = pickTarget(minY, maxY)
 	local target = pickTarget(minY, maxY)
 	local state: FishState = {
+		species = species,
 		parts = parts,
 		position = position,
 		heading = CFrame.lookAt(position, target).Rotation,
@@ -73,9 +114,11 @@ local function spawnFish(species: Config.Fish, minY: number, maxY: number, paren
 		phase = rng:NextNumber() * 10,
 		tailPivotZ = parts.body.Size.Z / 2,
 		tailHalfLength = parts.tail.Size.Z / 2,
+		caught = false,
 	}
+	addPrompt(state)
 	parts.model:PivotTo(state.heading + position)
-	parts.model.Parent = parent
+	parts.model.Parent = folder
 	table.insert(fish, state)
 end
 
@@ -115,8 +158,9 @@ function FishService.start(): Folder
 	end
 	table.clear(fish)
 
-	local folder = Instance.new("Folder")
-	folder.Name = "Fish"
+	local newFolder = Instance.new("Folder")
+	newFolder.Name = "Fish"
+	folder = newFolder
 
 	local spawn = Config.FishSpawn
 	for _, species in Config.Fish do
@@ -134,13 +178,13 @@ function FishService.start(): Folder
 			continue -- zone is below the prototype ocean floor
 		end
 		for _ = 1, spawn.perSpecies do
-			spawnFish(species, minY, maxY, folder)
+			spawnFish(species, minY, maxY)
 		end
 	end
 
-	folder.Parent = Workspace
+	newFolder.Parent = Workspace
 	RunService.Heartbeat:Connect(step)
-	return folder
+	return newFolder
 end
 
 return FishService

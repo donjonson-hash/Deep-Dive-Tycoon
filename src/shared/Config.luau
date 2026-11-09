@@ -21,7 +21,7 @@ export type Fish = {
 	basePrice: number, -- coins
 	minWeight: number, -- kg
 	maxWeight: number, -- kg
-	catchCost: number, -- O2 spent to catch
+	catchCost: number, -- CurrentO2 required to take the fish (not spent)
 }
 
 export type Pool = {
@@ -38,7 +38,7 @@ Config.World = {
 	studsPerMeter = 3, -- game depth scale: 1 meter = 3 studs
 	oceanFloorMeters = 66, -- prototype ocean only covers Lagoon + Coral Reef
 	oceanSize = 800, -- studs, square
-	islandRadius = 50, -- studs
+	islandRadius = 90, -- studs; big enough for spawn, pools and the market
 	islandTopY = 6, -- studs
 	surfaceToleranceMeters = 1, -- bobbing this close to the surface counts as "on the surface"
 }
@@ -60,9 +60,10 @@ Config.Economy = {
 -- and speed are balance, not decoration.
 Config.FishSpawn = {
 	perSpecies = 4, -- fish of each species alive at once
+	respawnSeconds = 20, -- a caught fish is replaced after this long (GDD: 20–60 s)
 	swimSpeed = 6, -- studs per second
-	minRadius = 60, -- studs from the island center; keeps fish out of the island
-	maxRadius = 220,
+	minRadius = 100, -- studs from the island center; keeps fish out of the island
+	maxRadius = 260,
 	surfaceMarginMeters = 1, -- fish never break the surface
 	floorMarginMeters = 2, -- or swim into the sand
 }
@@ -71,9 +72,23 @@ Config.Inventory = {
 	netCapacity = 3,
 }
 
+Config.Catching = {
+	holdSeconds = 1.5, -- hold the prompt this long next to a fish
+	reachStuds = 10, -- prompt activation distance; the server trusts the prompt's own check
+}
+
+Config.Movement = {
+	baseWalkSpeed = 16, -- Roblox default; swimming speed derives from it
+}
+
 Config.Weight = {
 	speedPenaltyPerKg = 0.02, -- each kg carried slows swimming by 2 %
 	minSpeedMultiplier = 0.4, -- never slower than 40 % of base speed
+}
+
+-- Prototype market: fixed prices (basePrice), the live exchange comes with the MVP.
+Config.Market = {
+	sellCooldownSeconds = 1, -- rate limit on the sell request
 }
 
 -- Chance of each rarity among the fish of a zone. Rarities missing in a zone
