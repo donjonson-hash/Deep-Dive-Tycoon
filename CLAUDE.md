@@ -67,8 +67,11 @@ a terminal opened before they were installed needs a restart to see them.
 - Area checks (pools, sell zone) convert the position to the part's object
   space and call the pure `Logic/Bounds.contains`.
 - Terrain is smoothed on a 4-stud grid: anything built flush with the island
-  top sinks into the grass. Keep walkable props ≥ 1.5 studs above
-  `Config.World.islandTopY` (see the pools in `MapBuilder`).
+  top sinks into the grass. Keep walkable props ≥ 3 studs above
+  `Config.World.islandTopY` (see `POOL_LIFT` in `MapBuilder`).
+- Island layout: spawn at the origin facing -Z, pools in front (-Z), market
+  kiosk to the right (-X) facing the spawn, pier off to +X. Climbing uses
+  `TrussPart` ladders; text on props uses `addSign` (SurfaceGui).
 - Modules in `src/shared/Logic` must not touch Roblox APIs or `require`
   other modules — callers pass data in. This keeps them runnable in Lune.
 - In Roblox code, require by instance (`require(script.World.MapBuilder)`),

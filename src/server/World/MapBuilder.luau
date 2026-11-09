@@ -1,7 +1,10 @@
 --!strict
--- Builds the greybox prototype map at server start: ocean, island, pier with
--- training pools, diving board and market stall. Everything is driven by Config,
--- so the layout lives in git instead of a binary place file.
+-- Builds the greybox prototype map at server start: ocean, island, pools, the
+-- market kiosk, pier and diving board. Everything is driven by Config, so the
+-- layout lives in git instead of a binary place file.
+--
+-- Island layout (player spawns at the origin facing -Z):
+--   pools in front (-Z), market kiosk to the right (-X), pier off to +X.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
@@ -11,16 +14,41 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local MapBuilder = {}
 
 local WOOD = Color3.fromRGB(150, 105, 60)
-local POOL_WATER = Color3.fromRGB(80, 190, 255)
-local STALL = Color3.fromRGB(220, 90, 60)
+local DARK_WOOD = Color3.fromRGB(95, 65, 40)
+local STONE = Color3.fromRGB(150, 150, 145)
+local WHITE = Color3.fromRGB(245, 245, 245)
+local AWNING_RED = Color3.fromRGB(215, 60, 50)
 
 local PIER_LENGTH = 120
 local PIER_WIDTH = 12
-local POOL_SIZE = 10
-local POOL_SPACING = 30 -- center to center, pools in a row on the island
-local POOL_ROW_Z = 32 -- the pool row sits behind the spawn, the market in front
-local MARKET_Z = -30
 local TERRAIN_TILE = 200 -- fill the ocean in tiles to stay under terrain write limits
+
+-- Pools: a row in front of the spawn.
+local POOL_SIZE = 10 -- inner water square
+local POOL_SPACING = 30 -- center to center
+local POOL_ROW_Z = -36
+-- Terrain is smoothed on a 4-stud grid, so anything flush with the grass sinks
+-- into it. The basin floor sits POOL_LIFT above the nominal island top.
+local POOL_LIFT = 3
+local POOL_WALL_HEIGHT = 3
+local POOL_WALL_THICKNESS = 1
+local POOL_WATER_DEPTH = 2.4
+local LADDER_WIDTH = 2
+
+local TILE = Color3.fromRGB(30, 110, 150)
+local TILE_FLOOR = Color3.fromRGB(150, 210, 240)
+local POOL_WATER = Color3.fromRGB(40, 170, 255)
+local POOL_SURFACE = Color3.fromRGB(130, 215, 255)
+local DUCK = Color3.fromRGB(255, 220, 40)
+local BEAK = Color3.fromRGB(255, 130, 40)
+local CORALS = {
+	Color3.fromRGB(255, 120, 160),
+	Color3.fromRGB(255, 150, 80),
+	Color3.fromRGB(190, 110, 230),
+}
+
+-- Market kiosk: to the right of the spawn, facing it.
+local MARKET_POSITION = Vector3.new(-40, 0, 0)
 
 local function makePart(className: string?, props: { [string]: any }, parent: Instance): BasePart
 	local part = Instance.new((className or "Part") :: any) :: BasePart
@@ -34,6 +62,7 @@ local function makePart(className: string?, props: { [string]: any }, parent: In
 	return part
 end
 
+-- Floating label above a part (name, hints). Fades out past MaxDistance.
 local function addLabel(adornee: BasePart, text: string, offsetY: number)
 	local gui = Instance.new("BillboardGui")
 	gui.Size = UDim2.fromOffset(220, 60)
@@ -51,6 +80,42 @@ local function addLabel(adornee: BasePart, text: string, offsetY: number)
 	label.Parent = gui
 
 	gui.Parent = adornee
+end
+
+-- A board with text painted on its front face (-Z of the given CFrame).
+local function addSign(
+	parent: Instance,
+	cframe: CFrame,
+	size: Vector3,
+	text: string,
+	boardColor: Color3,
+	textColor: Color3
+): BasePart
+	local board = makePart(nil, {
+		Name = "Sign",
+		Size = size,
+		CFrame = cframe,
+		Color = boardColor,
+		Material = Enum.Material.Wood,
+	}, parent)
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 50
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(0.9, 0.8)
+	label.Position = UDim2.fromScale(0.05, 0.1)
+	label.BackgroundTransparency = 1
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBlack
+	label.TextColor3 = textColor
+	label.Text = text
+	label.Parent = gui
+
+	gui.Parent = board
+	return board
 end
 
 -- The default Studio "Baseplate" template ships a baseplate and spawn that would cut
@@ -107,28 +172,9 @@ local function buildTerrain()
 	)
 end
 
--- Above-ground pools. Terrain is smoothed on a 4-stud grid, so anything flush
--- with the grass sinks into it; the basin floor sits POOL_DECK_LIFT above the
--- nominal island top and the walls rise from there. Stairs on the spawn side
--- lead onto the wall top; getting out is a jump over the wall.
-local POOL_DECK_LIFT = 1.5
-local POOL_WALL_HEIGHT = 2.5
-local POOL_WALL_THICKNESS = 1
-local POOL_WATER_DEPTH = 2
-local POOL_STEP_DEPTH = 2
-local POOL_STEP_WIDTH = 6
-
-local TILE = Color3.fromRGB(190, 225, 240)
-local TILE_DARK = Color3.fromRGB(120, 170, 200)
-local COPING = Color3.fromRGB(245, 245, 245)
-local STEP = Color3.fromRGB(205, 205, 200)
-local DUCK = Color3.fromRGB(255, 220, 40)
-local BEAK = Color3.fromRGB(255, 130, 40)
-local CORALS = {
-	Color3.fromRGB(255, 120, 160),
-	Color3.fromRGB(255, 150, 80),
-	Color3.fromRGB(190, 110, 230),
-}
+---------------------------------------------------------------------------
+-- Pools
+---------------------------------------------------------------------------
 
 local function addDuck(model: Model, x: number, waterTop: number, z: number)
 	local body = makePart(nil, {
@@ -175,38 +221,52 @@ local function addCoral(model: Model, x: number, floorTop: number, z: number)
 end
 
 local POOL_DECOR: { [string]: (Model, number, number, number) -> () } = {
-	Kiddie = function(model, x, deckTop, z)
-		addDuck(model, x + 2, deckTop + POOL_WATER_DEPTH, z + 2)
+	Kiddie = function(model, x, floorTop, z)
+		addDuck(model, x + 2, floorTop + POOL_WATER_DEPTH, z + 2)
 	end,
-	Coral = function(model, x, deckTop, z)
-		addCoral(model, x, deckTop, z)
+	Coral = function(model, x, floorTop, z)
+		addCoral(model, x, floorTop, z)
 	end,
 }
 
+-- Climbable ladder (TrussPart) from bottomY to topY, centered at (x, z).
+local function addLadder(parent: Instance, x: number, bottomY: number, topY: number, z: number)
+	local height = topY - bottomY
+	makePart("TrussPart", {
+		Name = "Ladder",
+		Size = Vector3.new(LADDER_WIDTH, height, LADDER_WIDTH),
+		CFrame = CFrame.new(x, bottomY + height / 2, z),
+		Color = STONE,
+		Material = Enum.Material.Metal,
+	}, parent)
+end
+
+-- Above-ground pool: tiled basin on a raised floor, bright water, a ladder on
+-- the outside to climb in and one on the inside to climb out, a name sign.
 local function buildPool(pool: Config.Pool, index: number, count: number, parent: Instance)
-	-- Pools stand in a row on the island grass, centered on the spawn's X.
-	local topY = Config.World.islandTopY
+	local groundY = Config.World.islandTopY
 	local x = (index - (count + 1) / 2) * POOL_SPACING
 	local z = POOL_ROW_Z
-	local deckTop = topY + POOL_DECK_LIFT
-	local wallTop = deckTop + POOL_WALL_HEIGHT
+	local floorTop = groundY + POOL_LIFT
+	local wallTop = floorTop + POOL_WALL_HEIGHT
 	local outer = POOL_SIZE + 2 * POOL_WALL_THICKNESS
+	local frontZ = z + outer / 2 -- the side facing the spawn (+Z)
 
 	local model = Instance.new("Model")
 	model.Name = pool.id
 	model:SetAttribute("PoolId", pool.id)
 
-	-- Basin floor, visibly above the grass.
+	-- Raised floor: light tiles, seen through the water.
 	makePart(nil, {
 		Name = "Floor",
-		Size = Vector3.new(outer, POOL_DECK_LIFT, outer),
-		CFrame = CFrame.new(x, topY + POOL_DECK_LIFT / 2, z),
-		Color = TILE_DARK,
+		Size = Vector3.new(outer, POOL_LIFT, outer),
+		CFrame = CFrame.new(x, groundY + POOL_LIFT / 2, z),
+		Color = TILE_FLOOR,
 		Material = Enum.Material.Marble,
 	}, model)
 
-	-- Tiled walls with a white coping on top.
-	local wallY = deckTop + POOL_WALL_HEIGHT / 2
+	-- Dark tiled walls with a white coping.
+	local wallY = floorTop + POOL_WALL_HEIGHT / 2
 	local wallOffset = POOL_SIZE / 2 + POOL_WALL_THICKNESS / 2
 	local function wall(size: Vector3, offset: Vector3)
 		makePart(nil, {
@@ -220,7 +280,7 @@ local function buildPool(pool: Config.Pool, index: number, count: number, parent
 			Name = "Coping",
 			Size = Vector3.new(size.X + 0.4, 0.3, size.Z + 0.4),
 			CFrame = CFrame.new(x + offset.X, wallTop + 0.15, z + offset.Z),
-			Color = COPING,
+			Color = WHITE,
 			Material = Enum.Material.SmoothPlastic,
 		}, model)
 	end
@@ -237,43 +297,63 @@ local function buildPool(pool: Config.Pool, index: number, count: number, parent
 		)
 	end
 
+	-- Water: a tinted glass body plus a glowing surface so it reads from afar.
 	local water = makePart(nil, {
 		Name = "PoolWater",
 		Size = Vector3.new(POOL_SIZE, POOL_WATER_DEPTH, POOL_SIZE),
-		CFrame = CFrame.new(x, deckTop + POOL_WATER_DEPTH / 2, z),
+		CFrame = CFrame.new(x, floorTop + POOL_WATER_DEPTH / 2, z),
 		Color = POOL_WATER,
 		Material = Enum.Material.Glass,
-		Transparency = 0.45,
+		Transparency = 0.3,
 		CanCollide = false,
 	}, model)
 	water:SetAttribute("PoolId", pool.id)
+	makePart(nil, {
+		Name = "WaterSurface",
+		Size = Vector3.new(POOL_SIZE, 0.2, POOL_SIZE),
+		CFrame = CFrame.new(x, floorTop + POOL_WATER_DEPTH - 0.1, z),
+		Color = POOL_SURFACE,
+		Material = Enum.Material.Neon,
+		Transparency = 0.55,
+		CanCollide = false,
+		CanQuery = false,
+	}, model)
 
-	-- Stairs from the grass up to the wall top, on the side facing the spawn.
-	local rise = wallTop + 0.3 - topY
-	local stepCount = math.ceil(rise)
-	local stepRise = rise / stepCount
-	local frontZ = z - outer / 2 - 0.2
-	for i = 1, stepCount do
-		local height = i * stepRise
-		makePart(nil, {
-			Name = "Step",
-			Size = Vector3.new(POOL_STEP_WIDTH, height, POOL_STEP_DEPTH),
-			CFrame = CFrame.new(
-				x,
-				topY + height / 2,
-				frontZ - (stepCount - i) * POOL_STEP_DEPTH - POOL_STEP_DEPTH / 2
-			),
-			Color = STEP,
-			Material = Enum.Material.Concrete,
-		}, model)
-	end
+	-- Ladders on the spawn side: outside (grass → coping) and inside (floor → coping).
+	local ladderX = x - POOL_SIZE / 2 + LADDER_WIDTH / 2 + 1
+	addLadder(model, ladderX, groundY, wallTop + 0.3, frontZ + LADDER_WIDTH / 2)
+	addLadder(
+		model,
+		ladderX,
+		floorTop,
+		wallTop + 0.3,
+		frontZ - POOL_WALL_THICKNESS - LADDER_WIDTH / 2
+	)
+
+	-- Name sign on a post beside the ladder, facing the spawn.
+	local signX = x + POOL_SIZE / 2 - 2
+	makePart(nil, {
+		Name = "SignPost",
+		Size = Vector3.new(0.5, 7, 0.5),
+		CFrame = CFrame.new(signX, groundY + 3.5, frontZ + 1.5),
+		Color = DARK_WOOD,
+		Material = Enum.Material.Wood,
+	}, model)
+	addSign(
+		model,
+		CFrame.new(signX, groundY + 7.5, frontZ + 1.5) * CFrame.Angles(0, math.pi, 0),
+		Vector3.new(7, 1.8, 0.4),
+		pool.name,
+		DARK_WOOD,
+		WHITE
+	)
 
 	local decorate = POOL_DECOR[pool.id]
 	if decorate then
-		decorate(model, x, deckTop, z)
+		decorate(model, x, floorTop, z)
 	end
 
-	local text = `{pool.name}\n+{pool.gainPerTick} O₂ / {Config.Oxygen.poolTickSeconds} с`
+	local text = `+{pool.gainPerTick} O₂ / {Config.Oxygen.poolTickSeconds} с`
 	if pool.unlockMaxO2 > 0 then
 		text ..= `\nоткрывается с {pool.unlockMaxO2} O₂`
 	end
@@ -281,6 +361,221 @@ local function buildPool(pool: Config.Pool, index: number, count: number, parent
 
 	model.Parent = parent
 end
+
+---------------------------------------------------------------------------
+-- Market kiosk
+---------------------------------------------------------------------------
+
+-- Built in kiosk space (front = -Z, ground y = 0) and placed with `root`.
+local function buildMarket(parent: Instance)
+	local groundY = Config.World.islandTopY
+	-- Face the spawn: the kiosk's -Z must point to world +X.
+	local root = CFrame.new(MARKET_POSITION + Vector3.new(0, groundY, 0))
+		* CFrame.Angles(0, -math.pi / 2, 0)
+
+	local market = Instance.new("Model")
+	market.Name = "Market"
+
+	local function place(className: string?, props: { [string]: any }): BasePart
+		props.CFrame = root * props.CFrame
+		return makePart(className, props, market)
+	end
+
+	-- Stone base and the wooden hut: back wall, two side walls, roof.
+	place(nil, {
+		Name = "Base",
+		Size = Vector3.new(22, 1, 14),
+		CFrame = CFrame.new(0, 0.5, 0),
+		Color = STONE,
+		Material = Enum.Material.Slate,
+	})
+	place(nil, {
+		Name = "BackWall",
+		Size = Vector3.new(22, 9, 1),
+		CFrame = CFrame.new(0, 5.5, 6.5),
+		Color = WOOD,
+		Material = Enum.Material.WoodPlanks,
+	})
+	for _, dx in { -10.5, 10.5 } do
+		place(nil, {
+			Name = "SideWall",
+			Size = Vector3.new(1, 9, 13),
+			CFrame = CFrame.new(dx, 5.5, 0),
+			Color = WOOD,
+			Material = Enum.Material.WoodPlanks,
+		})
+	end
+	place(nil, {
+		Name = "Roof",
+		Size = Vector3.new(24, 0.6, 15),
+		CFrame = CFrame.new(0, 10.3, 0),
+		Color = DARK_WOOD,
+		Material = Enum.Material.Wood,
+	})
+
+	-- Counter with a lighter top, scales and a couple of fish on display.
+	place(nil, {
+		Name = "Counter",
+		Size = Vector3.new(18, 3.5, 3),
+		CFrame = CFrame.new(0, 2.75, -4),
+		Color = WOOD,
+		Material = Enum.Material.WoodPlanks,
+	})
+	place(nil, {
+		Name = "CounterTop",
+		Size = Vector3.new(18.6, 0.3, 3.6),
+		CFrame = CFrame.new(0, 4.65, -4),
+		Color = WHITE,
+		Material = Enum.Material.Marble,
+	})
+	place(nil, {
+		Name = "ScaleBase",
+		Size = Vector3.new(1.6, 0.3, 1.6),
+		CFrame = CFrame.new(5, 4.95, -4),
+		Color = DARK_WOOD,
+		Material = Enum.Material.Metal,
+	})
+	place(nil, {
+		Name = "ScalePan",
+		Size = Vector3.new(2.2, 0.2, 2.2),
+		CFrame = CFrame.new(5, 6.2, -4),
+		Color = STONE,
+		Material = Enum.Material.Metal,
+	})
+	place(nil, {
+		Name = "ScalePole",
+		Size = Vector3.new(0.3, 1.2, 0.3),
+		CFrame = CFrame.new(5, 5.5, -4),
+		Color = STONE,
+		Material = Enum.Material.Metal,
+	})
+	for i, color in { Color3.fromRGB(150, 170, 190), Color3.fromRGB(255, 140, 50) } do
+		place(nil, {
+			Name = "DisplayFish",
+			Size = Vector3.new(2.2, 0.6, 0.9),
+			CFrame = CFrame.new(-5 + (i - 1) * 2.8, 5.1, -4) * CFrame.Angles(0, 0.3 * i, 0),
+			Color = color,
+			Material = Enum.Material.SmoothPlastic,
+			CanCollide = false,
+		})
+	end
+
+	-- Striped awning sloping down over the counter, held by two front poles.
+	local stripes = 7
+	local stripeWidth = 24 / stripes
+	for i = 1, stripes do
+		local sx = -12 + stripeWidth * (i - 0.5)
+		place(nil, {
+			Name = "Awning",
+			Size = Vector3.new(stripeWidth, 0.25, 7),
+			CFrame = CFrame.new(sx, 9.4, -10) * CFrame.Angles(math.rad(-18), 0, 0),
+			Color = if i % 2 == 1 then AWNING_RED else WHITE,
+			Material = Enum.Material.Fabric,
+			CanCollide = false,
+		})
+	end
+	for _, dx in { -11.5, 11.5 } do
+		place(nil, {
+			Name = "AwningPole",
+			Size = Vector3.new(0.5, 8.5, 0.5),
+			CFrame = CFrame.new(dx, 4.25, -13),
+			Color = DARK_WOOD,
+			Material = Enum.Material.Wood,
+		})
+	end
+
+	-- Shelves with jars on the back wall.
+	for shelf, y in { 4, 6.8 } do
+		place(nil, {
+			Name = "Shelf",
+			Size = Vector3.new(16, 0.3, 2),
+			CFrame = CFrame.new(0, y, 5),
+			Color = DARK_WOOD,
+			Material = Enum.Material.Wood,
+		})
+		for j = 1, 5 do
+			place(nil, {
+				Name = "Jar",
+				Shape = Enum.PartType.Cylinder,
+				Size = Vector3.new(1.4, 1, 1),
+				CFrame = CFrame.new(-6 + (j - 1) * 3 + shelf * 0.7, y + 0.85, 5)
+					* CFrame.Angles(0, 0, math.pi / 2),
+				Color = if (j + shelf) % 2 == 0 then POOL_WATER else AWNING_RED,
+				Material = Enum.Material.Glass,
+				Transparency = 0.3,
+				CanCollide = false,
+			})
+		end
+	end
+
+	-- Crates and a barrel at the sides.
+	for _, offset in
+		{ Vector3.new(-8, 1.75, 1), Vector3.new(-8, 4.25, 1), Vector3.new(-5.2, 1.75, 2) }
+	do
+		place(nil, {
+			Name = "Crate",
+			Size = Vector3.one * 2.5,
+			CFrame = CFrame.new(offset),
+			Color = WOOD,
+			Material = Enum.Material.WoodPlanks,
+		})
+	end
+	place(nil, {
+		Name = "Barrel",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(3.2, 2.6, 2.6),
+		CFrame = CFrame.new(8, 2.1, 1.5) * CFrame.Angles(0, 0, math.pi / 2),
+		Color = DARK_WOOD,
+		Material = Enum.Material.Wood,
+	})
+
+	-- Hanging sign above the awning and a chalkboard by the counter.
+	local sign = addSign(
+		market,
+		root * CFrame.new(0, 12.4, -6),
+		Vector3.new(12, 2.4, 0.4),
+		"РЫБНЫЙ РЫНОК",
+		DARK_WOOD,
+		WHITE
+	)
+	for _, dx in { -5, 5 } do
+		place(nil, {
+			Name = "SignChain",
+			Size = Vector3.new(0.2, 1.4, 0.2),
+			CFrame = CFrame.new(dx, 11.1, -6),
+			Color = STONE,
+			Material = Enum.Material.Metal,
+			CanCollide = false,
+		})
+	end
+	addLabel(sign, "Скупаем улов", 3)
+	addSign(
+		market,
+		root * CFrame.new(-8.5, 3, -9) * CFrame.Angles(0, math.rad(20), 0),
+		Vector3.new(4, 5, 0.3),
+		"Цены\nна табло\nрядом",
+		Color3.fromRGB(40, 60, 50),
+		WHITE
+	)
+
+	-- Standing in SellZone opens the market UI; MarketService checks the same
+	-- zone before paying out. It covers the approach from the spawn.
+	local sellZone = place(nil, {
+		Name = "SellZone",
+		Size = Vector3.new(30, 8, 26),
+		CFrame = CFrame.new(0, 4, -15),
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+	})
+	sellZone:SetAttribute("Zone", "Market")
+
+	market.Parent = parent
+end
+
+---------------------------------------------------------------------------
+-- Pier
+---------------------------------------------------------------------------
 
 local function buildPier(parent: Instance)
 	local world = Config.World
@@ -318,7 +613,7 @@ local function buildPier(parent: Instance)
 		Name = "DivingBoard",
 		Size = Vector3.new(8, 0.6, 4),
 		CFrame = CFrame.new(pierStartX + PIER_LENGTH + 4, deckY - 0.3, 0),
-		Color = Color3.fromRGB(240, 240, 240),
+		Color = WHITE,
 		Material = Enum.Material.SmoothPlastic,
 	}, pier)
 	addLabel(board, "Прыжок в океан ↓", 4)
@@ -326,10 +621,14 @@ local function buildPier(parent: Instance)
 	pier.Parent = parent
 end
 
-local function buildIsland(parent: Instance)
-	local world = Config.World
-	local topY = world.islandTopY
+---------------------------------------------------------------------------
+-- Island
+---------------------------------------------------------------------------
 
+local function buildIsland(parent: Instance)
+	local topY = Config.World.islandTopY
+
+	-- Spawn faces -Z, straight at the pool row.
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "IslandSpawn"
 	spawn.Anchored = true
@@ -346,46 +645,7 @@ local function buildIsland(parent: Instance)
 	end
 	pools.Parent = parent
 
-	-- Market stall. Standing in SellZone opens the market UI; MarketService
-	-- checks the same zone before paying out.
-	local market = Instance.new("Model")
-	market.Name = "Market"
-	local stallZ = MARKET_Z
-	makePart(nil, {
-		Name = "Counter",
-		Size = Vector3.new(14, 3, 4),
-		CFrame = CFrame.new(0, topY + 1.5, stallZ),
-		Color = WOOD,
-		Material = Enum.Material.WoodPlanks,
-	}, market)
-	local roof = makePart(nil, {
-		Name = "Roof",
-		Size = Vector3.new(16, 0.6, 8),
-		CFrame = CFrame.new(0, topY + 8, stallZ - 1),
-		Color = STALL,
-		Material = Enum.Material.Fabric,
-	}, market)
-	for _, dx in { -7, 7 } do
-		makePart(nil, {
-			Name = "Pole",
-			Size = Vector3.new(0.6, 8, 0.6),
-			CFrame = CFrame.new(dx, topY + 4, stallZ - 2),
-			Color = WOOD,
-			Material = Enum.Material.Wood,
-		}, market)
-	end
-	addLabel(roof, "Рынок", 3)
-	-- Walking up to the stall opens the market: the zone starts ~20 studs out.
-	local sellZone = makePart(nil, {
-		Name = "SellZone",
-		Size = Vector3.new(30, 8, 26),
-		CFrame = CFrame.new(0, topY + 4, stallZ + 9),
-		Transparency = 1,
-		CanCollide = false,
-		CanQuery = false,
-	}, market)
-	sellZone:SetAttribute("Zone", "Market")
-	market.Parent = parent
+	buildMarket(parent)
 end
 
 function MapBuilder.build(): Folder
