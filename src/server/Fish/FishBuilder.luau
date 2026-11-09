@@ -371,6 +371,43 @@ local function angelfish(model: Model): (BasePart, Model, CFrame, number)
 	return body, tail, hinge, 4.8
 end
 
+local function tuna(model: Model): (BasePart, Model, CFrame, number)
+	local steel = Color3.fromRGB(40, 60, 110)
+	local silver = Color3.fromRGB(200, 210, 220)
+	local yellow = Color3.fromRGB(255, 210, 60)
+	local length = 7.5
+	-- Torpedo body: dark back, silver belly, pointed nose.
+	local body = blob("Body", Vector3.new(1.6, 2.2, length), CFrame.new(), steel, model)
+	blob("Belly", Vector3.new(1.55, 1.5, length * 0.9), CFrame.new(0, -0.5, 0.1), silver, model)
+	blob("Nose", Vector3.new(0.9, 1.1, 1.6), CFrame.new(0, -0.1, -length / 2 + 0.3), steel, model)
+	dorsalFin(model, 1.6, 1.3, 1.05, -1.0, steel)
+	dorsalFin(model, 1.2, 0.8, 1.0, 1.2, yellow)
+	analFin(model, 1.2, 0.7, -1.05, 1.3, yellow)
+	-- Finlets along the tail stock, the tuna's signature.
+	for i = 1, 3 do
+		local z = 2.2 + i * 0.4
+		wedge(
+			"Finlet",
+			Vector3.new(0.1, 0.35, 0.3),
+			CFrame.new(0, 0.75, z) * CFrame.Angles(math.pi / 2, 0, 0),
+			yellow,
+			model
+		)
+		wedge(
+			"Finlet",
+			Vector3.new(0.1, 0.35, 0.3),
+			CFrame.new(0, -0.75, z) * CFrame.Angles(-math.pi / 2, 0, 0),
+			yellow,
+			model
+		)
+	end
+	-- Long sickle pectoral fins.
+	pectoralFins(model, 0.8, -0.2, -1.4, 2.4, steel)
+	eyes(model, 0.78, 0.35, -length / 2 + 1.1, 0.45)
+	local tail, hinge = forkedTail(model, length / 2 - 0.4, 1.6, 1.7, steel)
+	return body, tail, hinge, 1.9
+end
+
 -- Fallback for a species without a recipe: a plain fish colored by rarity.
 local function generic(species: Config.Fish): Recipe
 	return function(model: Model)
@@ -392,6 +429,7 @@ end
 
 local RECIPES: { [string]: Recipe } = {
 	Sardine = sardine,
+	Tuna = tuna,
 	Seahorse = seahorse,
 	Clownfish = clownfish,
 	Parrotfish = parrotfish,

@@ -31,6 +31,7 @@ type Ui = {
 	o2Text: TextLabel,
 	coinsText: TextLabel,
 	netText: TextLabel,
+	eggsText: TextLabel,
 }
 
 local function round(parent: GuiObject, radius: number)
@@ -60,7 +61,7 @@ local function build(parent: Instance): Ui
 
 	local panel = Instance.new("Frame")
 	panel.Position = UDim2.fromOffset(12, 12)
-	panel.Size = UDim2.fromOffset(240, 118)
+	panel.Size = UDim2.fromOffset(240, 146)
 	panel.BackgroundColor3 = PANEL
 	panel.BackgroundTransparency = 0.3
 	panel.Parent = gui
@@ -129,8 +130,31 @@ local function build(parent: Instance): Ui
 		Text = "",
 	}, panel)
 
+	-- Eggs row: bought eggs waiting to hatch.
+	local eggsText = makeLabel({
+		Name = "EggsText",
+		Position = UDim2.fromOffset(4, 102),
+		Size = UDim2.new(1, -4, 0, 24),
+		Text = "",
+	}, panel)
+
 	gui.Parent = parent
-	return { o2Fill = fill, o2Text = o2Text, coinsText = coinsText, netText = netText }
+	return {
+		o2Fill = fill,
+		o2Text = o2Text,
+		coinsText = coinsText,
+		netText = netText,
+		eggsText = eggsText,
+	}
+end
+
+local function readEggs(player: Player): { string }
+	local raw = player:GetAttribute(Attributes.Eggs)
+	if type(raw) ~= "string" or raw == "" then
+		return {}
+	end
+	local ok, items = pcall(HttpService.JSONDecode, HttpService, raw)
+	return if ok and type(items) == "table" then items else {}
 end
 
 local function readNet(player: Player): { Net.ItemLike }
@@ -182,6 +206,8 @@ function StatsHud.start()
 			if full then " · полон" else ""
 		)
 		ui.netText.TextColor3 = if full then NET_FULL else Color3.new(1, 1, 1)
+
+		ui.eggsText.Text = `Яйца: {#readEggs(player)}`
 	end
 
 	for _, name in Attributes do

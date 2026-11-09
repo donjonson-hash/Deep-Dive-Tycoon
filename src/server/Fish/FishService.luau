@@ -28,6 +28,7 @@ type FishState = {
 	position: Vector3,
 	heading: CFrame, -- rotation only; position is applied separately
 	target: Vector3,
+	ring: Config.ZoneSpawn,
 	minY: number,
 	maxY: number,
 	phase: number, -- so fish do not bob and wag in lockstep
@@ -38,11 +39,10 @@ local rng = Random.new()
 local fish: { FishState } = {}
 local folder: Folder? = nil
 
-local function pickTarget(minY: number, maxY: number): Vector3
-	local spawn = Config.FishSpawn
+local function pickTarget(ring: Config.ZoneSpawn, minY: number, maxY: number): Vector3
 	local x, y, z = FishMotion.randomPoint(
-		spawn.minRadius,
-		spawn.maxRadius,
+		ring.minRadius,
+		ring.maxRadius,
 		minY,
 		maxY,
 		rng:NextNumber(),
@@ -61,7 +61,7 @@ local function zoneById(zoneId: string): Config.Zone?
 	return nil
 end
 
-local spawnFish: (species: Config.Fish, minY: number, maxY: number) -> ()
+local spawnFish: (species: Config.Fish, ring: Config.ZoneSpawn, minY: number, maxY: number) -> ()
 
 local function onCaught(player: Player, state: FishState)
 	if state.caught or not CatchService.tryCatch(player, state.species) then
@@ -78,7 +78,7 @@ local function onCaught(player: Player, state: FishState)
 	-- The ocean refills: same species, same zone, a bit later.
 	task.delay(Config.FishSpawn.respawnSeconds, function()
 		if folder and folder.Parent then
-			spawnFish(state.species, state.minY, state.maxY)
+			spawnFish(state.species, state.ring, state.minY, state.maxY)
 		end
 	end)
 end
@@ -97,16 +97,17 @@ local function addPrompt(state: FishState)
 	prompt.Parent = state.parts.body
 end
 
-spawnFish = function(species: Config.Fish, minY: number, maxY: number)
+spawnFish = function(species: Config.Fish, ring: Config.ZoneSpawn, minY: number, maxY: number)
 	local parts = FishBuilder.build(species)
-	local position = pickTarget(minY, maxY)
-	local target = pickTarget(minY, maxY)
+	local position = pickTarget(ring, minY, maxY)
+	local target = pickTarget(ring, minY, maxY)
 	local state: FishState = {
 		species = species,
 		parts = parts,
 		position = position,
 		heading = CFrame.lookAt(position, target).Rotation,
 		target = target,
+		ring = ring,
 		minY = minY,
 		maxY = maxY,
 		phase = rng:NextNumber() * 10,
@@ -126,7 +127,7 @@ local function step(dt: number)
 	for _, f in fish do
 		local toTarget = f.target - f.position
 		if toTarget.Magnitude < ARRIVE_DISTANCE then
-			f.target = pickTarget(f.minY, f.maxY)
+			f.target = pickTarget(f.ring, f.minY, f.maxY)
 			toTarget = f.target - f.position
 		end
 
@@ -159,20 +160,22 @@ function FishService.start(): Folder
 	local spawn = Config.FishSpawn
 	for _, species in Config.Fish do
 		local zone = zoneById(species.zoneId)
-		if not zone then
-			continue
+		local ring = if zone then zone.spawn else nil
+		if not zone or not ring then
+			continue -- zone has no spawn ring in the prototype
 		end
 		local minY, maxY = FishMotion.zoneBounds(
 			zone,
 			Config.World,
+			ring.floorMeters,
 			spawn.surfaceMarginMeters,
 			spawn.floorMarginMeters
 		)
 		if minY == nil or maxY == nil then
-			continue -- zone is below the prototype ocean floor
+			continue -- zone is below its seabed
 		end
 		for _ = 1, spawn.perSpecies do
-			spawnFish(species, minY, maxY)
+			spawnFish(species, ring, minY, maxY)
 		end
 	end
 

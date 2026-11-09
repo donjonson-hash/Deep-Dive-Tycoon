@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local ReefBuilder = require(script.Parent.ReefBuilder)
 
 local MapBuilder = {}
 
@@ -144,10 +145,12 @@ local function removeTemplateLeftovers()
 	end
 end
 
-local function buildTerrain()
+-- Returns the Y of the reef shelf (the terrace's top), used by reef props.
+local function buildTerrain(): number
 	local world = Config.World
 	local terrain = Workspace.Terrain
 	local floorY = world.surfaceY - world.oceanFloorMeters * world.studsPerMeter
+	local shelfY = world.surfaceY - world.shelfDepthMeters * world.studsPerMeter
 	local waterHeight = world.surfaceY - floorY
 	local half = world.oceanSize / 2
 
@@ -168,6 +171,16 @@ local function buildTerrain()
 		end
 	end
 
+	-- Reef shelf: a sand terrace around the island at shelfDepthMeters. Past
+	-- shelfRadius the seabed drops to the deep floor (Open Ocean).
+	local shelfHeight = shelfY - floorY
+	terrain:FillCylinder(
+		CFrame.new(0, floorY + shelfHeight / 2, 0),
+		shelfHeight,
+		world.shelfRadius,
+		Enum.Material.Sand
+	)
+
 	-- Island: a sand column from the seabed to above the surface. All sand, no
 	-- grass: it is a beach, and the palms carry the green.
 	local islandHeight = world.islandTopY - floorY
@@ -177,6 +190,8 @@ local function buildTerrain()
 		world.islandRadius,
 		Enum.Material.Sand
 	)
+
+	return shelfY
 end
 
 ---------------------------------------------------------------------------
@@ -771,9 +786,10 @@ function MapBuilder.build(): Folder
 	local map = Instance.new("Folder")
 	map.Name = "Map"
 
-	buildTerrain()
+	local shelfY = buildTerrain()
 	buildIsland(map)
 	buildPier(map)
+	ReefBuilder.build(map, shelfY)
 
 	map.Parent = Workspace
 	return map

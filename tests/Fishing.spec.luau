@@ -9,20 +9,23 @@ local function roll(zoneId: string, r: number): string?
 end
 
 return function(t: TestKit.TestKit)
-	-- Lagoon has Common/Uncommon/Rare: weights 60/25/10 out of 95.
+	-- Coral Reef has Common/Uncommon: weights 60/25 out of 85.
 	t:test("low rolls give common fish", function()
-		t:eq(roll("Lagoon", 0), "Sardine")
-		t:eq(roll("Lagoon", 0.63), "Sardine")
+		t:eq(roll("CoralReef", 0), "Sardine")
+		t:eq(roll("CoralReef", 0.7), "Sardine")
 	end)
 
-	t:test("middle rolls give uncommon fish", function()
-		t:eq(roll("Lagoon", 0.64), "Seahorse")
-		t:eq(roll("Lagoon", 0.89), "Seahorse")
+	t:test("high rolls give uncommon fish", function()
+		t:eq(roll("CoralReef", 0.71), "Tuna")
+		t:eq(roll("CoralReef", 0.999999), "Tuna")
+		t:eq(roll("CoralReef", 1), "Tuna")
 	end)
 
-	t:test("top rolls give rare fish", function()
-		t:eq(roll("Lagoon", 0.9), "Clownfish")
-		t:eq(roll("Lagoon", 0.999999), "Clownfish")
+	-- Lagoon has Uncommon/Rare only: weights 25/10 out of 35.
+	t:test("missing rarities are skipped and the rest renormalized", function()
+		t:eq(roll("Lagoon", 0), "Seahorse")
+		t:eq(roll("Lagoon", 0.71), "Seahorse")
+		t:eq(roll("Lagoon", 0.72), "Clownfish")
 		t:eq(roll("Lagoon", 1), "Clownfish")
 	end)
 
@@ -30,7 +33,7 @@ return function(t: TestKit.TestKit)
 		local counts: { [string]: number } = {}
 		local samples = 9500
 		for i = 0, samples - 1 do
-			local id = roll("CoralReef", i / samples) :: string
+			local id = roll("OpenOcean", i / samples) :: string
 			counts[id] = (counts[id] or 0) + 1
 		end
 		t:eq(counts.Parrotfish, 6000)

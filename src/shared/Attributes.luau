@@ -9,4 +9,6 @@ return {
 	Coins = "Coins",
 	-- JSON array of { id: string, weight: number }: the fish in the player's net.
 	Net = "Net",
+	-- JSON array of egg ids (Config.Eggs) the player has bought and not hatched.
+	Eggs = "Eggs",
 }

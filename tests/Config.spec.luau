@@ -61,4 +61,38 @@ return function(t: TestKit.TestKit)
 		end
 		assert(Config.World.oceanFloorMeters > deepest, `ocean floor must be below {deepest} m`)
 	end)
+
+	t:test("every zone with fish has a spawn ring that fits the ocean", function()
+		local half = Config.World.oceanSize / 2
+		for _, fish in Config.Fish do
+			for _, zone in Config.Zones do
+				if zone.id == fish.zoneId then
+					local spawn = zone.spawn
+					assert(spawn, `{zone.id}: fish but no spawn ring`)
+					assert(
+						spawn.minRadius > Config.World.islandRadius,
+						`{zone.id}: ring inside island`
+					)
+					assert(spawn.maxRadius <= half, `{zone.id}: ring outside the ocean`)
+					assert(spawn.floorMeters > zone.minDepth, `{zone.id}: seabed above the zone`)
+				end
+			end
+		end
+	end)
+
+	t:test("egg odds add up to 100 and name real fish", function()
+		local fishIds = {}
+		for _, fish in Config.Fish do
+			fishIds[fish.id] = true
+		end
+		for _, egg in Config.Eggs do
+			local total = 0
+			for _, entry in egg.hatch do
+				assert(fishIds[entry.fishId], `{egg.id}: unknown fish {entry.fishId}`)
+				total += entry.chance
+			end
+			t:eq(total, 100)
+			assert(egg.price > 0 and egg.nestCount > 0, `{egg.id}: price/nests`)
+		end
+	end)
 end

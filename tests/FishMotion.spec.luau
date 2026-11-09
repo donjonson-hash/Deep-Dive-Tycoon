@@ -20,6 +20,7 @@ return function(t: TestKit.TestKit)
 		local minY, maxY = FishMotion.zoneBounds(
 			zone("Lagoon"),
 			world,
+			world.shelfDepthMeters,
 			spawn.surfaceMarginMeters,
 			spawn.floorMarginMeters
 		)
@@ -27,20 +28,26 @@ return function(t: TestKit.TestKit)
 		t:eq(maxY, -3)
 	end)
 
-	t:test("coral reef band spans the whole zone", function()
-		local minY, maxY = FishMotion.zoneBounds(zone("CoralReef"), world, 1, 2)
-		t:eq(minY, -180)
+	t:test("reef band is clamped above the shelf", function()
+		local minY, maxY = FishMotion.zoneBounds(zone("CoralReef"), world, 58, 1, 2)
+		t:eq(minY, -(58 - 2) * 3)
 		t:eq(maxY, -60)
 	end)
 
-	t:test("zone cut by the ocean floor is clamped above the sand", function()
-		local minY, maxY = FishMotion.zoneBounds(zone("OpenOcean"), world, 1, 2)
-		t:eq(minY, -(66 - 2) * 3)
+	t:test("open ocean band spans the whole zone over the deep seabed", function()
+		local minY, maxY = FishMotion.zoneBounds(zone("OpenOcean"), world, 160, 1, 2)
+		t:eq(minY, -450)
 		t:eq(maxY, -180)
 	end)
 
-	t:test("zone entirely below the floor has no band", function()
-		local minY, maxY = FishMotion.zoneBounds(zone("Trench"), world, 1, 2)
+	t:test("zone cut by the seabed is clamped above the sand", function()
+		local minY, maxY = FishMotion.zoneBounds(zone("Twilight"), world, 160, 1, 2)
+		t:eq(minY, -(160 - 2) * 3)
+		t:eq(maxY, -450)
+	end)
+
+	t:test("zone entirely below the seabed has no band", function()
+		local minY, maxY = FishMotion.zoneBounds(zone("Trench"), world, 160, 1, 2)
 		t:eq(minY, nil)
 		t:eq(maxY, nil)
 	end)

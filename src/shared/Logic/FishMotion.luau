@@ -10,7 +10,6 @@ export type ZoneLike = {
 export type WorldLike = {
 	surfaceY: number,
 	studsPerMeter: number,
-	oceanFloorMeters: number,
 }
 
 local FishMotion = {}
@@ -19,16 +18,18 @@ local function lerp(a: number, b: number, t: number): number
 	return a + (b - a) * t
 end
 
--- Vertical band (in studs) where fish of a zone may swim: minY is the deepest
--- point, maxY the shallowest. Nil when the zone lies entirely below the ocean floor.
+-- Vertical band (in studs) where fish of a zone may swim above a seabed at
+-- floorMeters: minY is the deepest point, maxY the shallowest. Nil when the
+-- zone lies entirely below that seabed.
 function FishMotion.zoneBounds(
 	zone: ZoneLike,
 	world: WorldLike,
+	floorMeters: number,
 	surfaceMarginMeters: number,
 	floorMarginMeters: number
 ): (number?, number?)
 	local top = math.max(zone.minDepth, surfaceMarginMeters)
-	local bottom = math.min(zone.maxDepth, world.oceanFloorMeters - floorMarginMeters)
+	local bottom = math.min(zone.maxDepth, floorMeters - floorMarginMeters)
 	if bottom <= top then
 		return nil, nil
 	end

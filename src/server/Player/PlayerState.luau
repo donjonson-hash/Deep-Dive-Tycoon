@@ -18,8 +18,9 @@ export type NetItem = {
 	weight: number, -- kg
 }
 
--- The net lives in server memory; the attribute is a JSON copy for the client.
+-- The net and the eggs live in server memory; attributes carry JSON copies.
 local nets: { [Player]: { NetItem } } = {}
+local eggs: { [Player]: { string } } = {}
 
 local function getNumber(player: Player, name: string): number
 	local value = player:GetAttribute(name)
@@ -50,6 +51,35 @@ end
 
 function PlayerState.addCoins(player: Player, amount: number)
 	player:SetAttribute(Attributes.Coins, PlayerState.getCoins(player) + amount)
+end
+
+-- Takes coins if the player has enough; false (and no change) otherwise.
+function PlayerState.spendCoins(player: Player, amount: number): boolean
+	local coins = PlayerState.getCoins(player)
+	if coins < amount then
+		return false
+	end
+	player:SetAttribute(Attributes.Coins, coins - amount)
+	return true
+end
+
+function PlayerState.getEggs(player: Player): { string }
+	return eggs[player] or {}
+end
+
+local function publishEggs(player: Player)
+	player:SetAttribute(Attributes.Eggs, HttpService:JSONEncode(PlayerState.getEggs(player)))
+end
+
+-- Eggs are inventory, not catch: they survive death.
+function PlayerState.addEgg(player: Player, eggId: string)
+	local list = eggs[player]
+	if not list then
+		list = {}
+		eggs[player] = list
+	end
+	table.insert(list, eggId)
+	publishEggs(player)
 end
 
 function PlayerState.getNet(player: Player): { NetItem }
@@ -112,6 +142,8 @@ local function onPlayerAdded(player: Player)
 	PlayerState.setCurrentO2(player, Config.Oxygen.startingMaxO2)
 	player:SetAttribute(Attributes.Coins, Config.Economy.startingCoins)
 	PlayerState.clearNet(player)
+	eggs[player] = {}
+	publishEggs(player)
 
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
@@ -128,6 +160,7 @@ function PlayerState.start()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(function(player)
 		nets[player] = nil
+		eggs[player] = nil
 	end)
 end
 

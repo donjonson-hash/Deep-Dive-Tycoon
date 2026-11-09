@@ -4,6 +4,14 @@
 
 export type Rarity = "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary"
 
+-- Where a zone's fish live: a ring around the island (studs from the center)
+-- above a given seabed. Zones without it spawn no fish in the prototype.
+export type ZoneSpawn = {
+	minRadius: number,
+	maxRadius: number,
+	floorMeters: number, -- seabed depth under this ring
+}
+
 export type Zone = {
 	id: string,
 	name: string,
@@ -11,6 +19,22 @@ export type Zone = {
 	maxDepth: number, -- meters, exclusive (math.huge for the last zone)
 	drainPerSecond: number, -- passive O2 drain while in this zone
 	recommendedMaxO2: number, -- hint for players, not enforced
+	spawn: ZoneSpawn?,
+}
+
+export type HatchChance = {
+	fishId: string,
+	chance: number, -- percent; chances of one egg add up to 100
+}
+
+export type Egg = {
+	id: string,
+	name: string,
+	price: number, -- coins
+	zoneId: string, -- nests sit on this zone's seabed
+	nestCount: number,
+	restockSeconds: number, -- a bought egg reappears after this long
+	hatch: { HatchChance }, -- shown to the player before buying (platform rule)
 }
 
 export type Fish = {
@@ -36,7 +60,9 @@ local Config = {}
 Config.World = {
 	surfaceY = 0, -- water surface height in studs
 	studsPerMeter = 3, -- game depth scale: 1 meter = 3 studs
-	oceanFloorMeters = 66, -- prototype ocean only covers Lagoon + Coral Reef
+	oceanFloorMeters = 160, -- deep seabed beyond the reef shelf (Open Ocean)
+	shelfDepthMeters = 58, -- the coral reef terrace around the island ends here
+	shelfRadius = 230, -- studs; the shelf drops to the deep seabed past this
 	oceanSize = 800, -- studs, square
 	islandRadius = 90, -- studs; big enough for spawn, pools and the market
 	islandTopY = 6, -- studs
@@ -62,8 +88,6 @@ Config.FishSpawn = {
 	perSpecies = 4, -- fish of each species alive at once
 	respawnSeconds = 20, -- a caught fish is replaced after this long (GDD: 20–60 s)
 	swimSpeed = 6, -- studs per second
-	minRadius = 100, -- studs from the island center; keeps fish out of the island
-	maxRadius = 260,
 	surfaceMarginMeters = 1, -- fish never break the surface
 	floorMarginMeters = 2, -- or swim into the sand
 }
@@ -103,6 +127,11 @@ Config.RarityWeights = {
 
 Config.RarityOrder = { "Common", "Uncommon", "Rare", "Epic", "Legendary" } :: { Rarity }
 
+-- Lagoon and Coral Reef fish swim over the reef shelf; Open Ocean fish live in
+-- the deep water past its edge.
+local SHELF_RING = { minRadius = 100, maxRadius = 220, floorMeters = 58 } :: ZoneSpawn
+local DEEP_RING = { minRadius = 240, maxRadius = 370, floorMeters = 160 } :: ZoneSpawn
+
 Config.Zones = {
 	{
 		id = "Lagoon",
@@ -111,6 +140,7 @@ Config.Zones = {
 		maxDepth = 20,
 		drainPerSecond = 1,
 		recommendedMaxO2 = 50,
+		spawn = SHELF_RING,
 	},
 	{
 		id = "CoralReef",
@@ -119,6 +149,7 @@ Config.Zones = {
 		maxDepth = 60,
 		drainPerSecond = 2,
 		recommendedMaxO2 = 300,
+		spawn = SHELF_RING,
 	},
 	{
 		id = "OpenOcean",
@@ -127,6 +158,7 @@ Config.Zones = {
 		maxDepth = 150,
 		drainPerSecond = 3,
 		recommendedMaxO2 = 2000,
+		spawn = DEEP_RING,
 	},
 	{
 		id = "Twilight",
@@ -154,17 +186,28 @@ Config.Zones = {
 	},
 } :: { Zone }
 
--- Prototype fish: three species per zone for the first two zones.
+-- Prototype fish. Zone assignment is the owner's call from 2026-11-09: the
+-- reef holds sardine and tuna only, the tropical trio lives past the shelf.
 Config.Fish = {
 	{
 		id = "Sardine",
 		name = "Сардина",
-		zoneId = "Lagoon",
+		zoneId = "CoralReef",
 		rarity = "Common",
 		basePrice = 5,
 		minWeight = 0.1,
 		maxWeight = 0.3,
 		catchCost = 3,
+	},
+	{
+		id = "Tuna",
+		name = "Тунец",
+		zoneId = "CoralReef",
+		rarity = "Uncommon",
+		basePrice = 60,
+		minWeight = 8,
+		maxWeight = 30,
+		catchCost = 15,
 	},
 	{
 		id = "Seahorse",
@@ -189,7 +232,7 @@ Config.Fish = {
 	{
 		id = "Parrotfish",
 		name = "Рыба-попугай",
-		zoneId = "CoralReef",
+		zoneId = "OpenOcean",
 		rarity = "Common",
 		basePrice = 40,
 		minWeight = 1,
@@ -199,7 +242,7 @@ Config.Fish = {
 	{
 		id = "Surgeonfish",
 		name = "Рыба-хирург",
-		zoneId = "CoralReef",
+		zoneId = "OpenOcean",
 		rarity = "Uncommon",
 		basePrice = 80,
 		minWeight = 0.8,
@@ -209,7 +252,7 @@ Config.Fish = {
 	{
 		id = "Angelfish",
 		name = "Рыба-ангел",
-		zoneId = "CoralReef",
+		zoneId = "OpenOcean",
 		rarity = "Rare",
 		basePrice = 150,
 		minWeight = 0.5,
@@ -217,6 +260,23 @@ Config.Fish = {
 		catchCost = 25,
 	},
 } :: { Fish }
+
+-- Eggs sold from nests on the seabed. Hatching and the aquarium come next;
+-- for now a bought egg sits in the player's inventory.
+Config.Eggs = {
+	{
+		id = "ReefEgg",
+		name = "Икра рифа",
+		price = 50, -- assumption: about ten sardines or one tuna
+		zoneId = "CoralReef",
+		nestCount = 4,
+		restockSeconds = 60,
+		hatch = {
+			{ fishId = "Sardine", chance = 70 },
+			{ fishId = "Tuna", chance = 30 },
+		},
+	},
+} :: { Egg }
 
 Config.Pools = {
 	{
