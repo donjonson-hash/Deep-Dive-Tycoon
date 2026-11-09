@@ -8,12 +8,12 @@ return function(t: TestKit.TestKit)
 
 	t:test("prototype price is the base price", function()
 		t:eq(prices.Sardine, 5)
-		t:eq(prices.Angelfish, 150)
+		t:eq(prices.Tuna, 60)
 	end)
 
 	t:test("total adds up every fish in the net", function()
-		local net = { { id = "Sardine" }, { id = "Sardine" }, { id = "Clownfish" } }
-		t:eq(Market.totalValue(net, prices), 30)
+		local net = { { id = "Sardine" }, { id = "Sardine" }, { id = "Tuna" } }
+		t:eq(Market.totalValue(net, prices), 70)
 	end)
 
 	t:test("empty net and unknown fish are worth nothing", function()

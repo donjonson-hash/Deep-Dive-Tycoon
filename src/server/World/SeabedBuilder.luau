@@ -1,17 +1,17 @@
 --!strict
--- Dresses the reef shelf so the Coral Reef zone reads as a biome: clusters of
--- branching, brain and fan corals plus seaweed, scattered over the terrace
--- between the island and the shelf edge. Seeded so every server matches.
+-- Dresses the lagoon seabed so the dive has something to look at: clusters of
+-- rocks, branching, brain and fan corals plus seaweed, scattered over the
+-- Lagoon's spawn ring. Seeded so every server matches.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 
-local ReefBuilder = {}
+local SeabedBuilder = {}
 
 local SEED = 11
-local CLUSTERS = 44
-local EDGE_MARGIN = 12 -- studs kept clear of the island foot and the shelf edge
+local CLUSTERS = 60
+local EDGE_MARGIN = 12 -- studs kept clear of the ring edges
 local SINK = 0.6 -- bury bases a little so nothing floats over the sand
 
 local CORAL_COLORS = {
@@ -119,28 +119,28 @@ local function rocks(parent: Instance, base: Vector3, rng: Random)
 	end
 end
 
-local function reefRing(): Config.ZoneSpawn?
+local function lagoonRing(): Config.ZoneSpawn?
 	for _, zone in Config.Zones do
-		if zone.id == "CoralReef" then
+		if zone.id == "Lagoon" then
 			return zone.spawn
 		end
 	end
 	return nil
 end
 
-function ReefBuilder.build(parent: Instance, shelfY: number): Folder
+function SeabedBuilder.build(parent: Instance, floorY: number): Folder
 	local folder = Instance.new("Folder")
-	folder.Name = "Reef"
+	folder.Name = "Seabed"
 
-	local ring = reefRing()
+	local ring = lagoonRing()
 	local minRadius = (if ring then ring.minRadius else Config.World.islandRadius) + EDGE_MARGIN
-	local maxRadius = Config.World.shelfRadius - EDGE_MARGIN
+	local maxRadius = (if ring then ring.maxRadius else Config.World.oceanSize / 2) - EDGE_MARGIN
 	local rng = Random.new(SEED)
 
 	for _ = 1, CLUSTERS do
 		local angle = rng:NextNumber(0, 2 * math.pi)
 		local radius = rng:NextNumber(minRadius, maxRadius)
-		local base = Vector3.new(math.cos(angle) * radius, shelfY, math.sin(angle) * radius)
+		local base = Vector3.new(math.cos(angle) * radius, floorY, math.sin(angle) * radius)
 
 		local cluster = Instance.new("Model")
 		cluster.Name = "Cluster"
@@ -166,4 +166,4 @@ function ReefBuilder.build(parent: Instance, shelfY: number): Folder
 	return folder
 end
 
-return ReefBuilder
+return SeabedBuilder

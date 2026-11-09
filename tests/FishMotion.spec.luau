@@ -6,48 +6,29 @@ local Config = require("../src/shared/Config")
 local world = Config.World
 local spawn = Config.FishSpawn
 
-local function zone(id: string): Config.Zone
-	for _, z in Config.Zones do
-		if z.id == id then
-			return z
-		end
-	end
-	error(`no zone {id}`)
-end
-
 return function(t: TestKit.TestKit)
-	t:test("lagoon band stays below the surface margin", function()
+	t:test("lagoon band runs from the surface margin to just above the seabed", function()
+		local lagoon = Config.Zones[1]
+		local ring = lagoon.spawn :: Config.ZoneSpawn
 		local minY, maxY = FishMotion.zoneBounds(
-			zone("Lagoon"),
+			lagoon,
 			world,
-			world.shelfDepthMeters,
+			ring.floorMeters,
 			spawn.surfaceMarginMeters,
 			spawn.floorMarginMeters
 		)
-		t:eq(minY, -60)
+		t:eq(minY, -(50 - 2) * 3)
 		t:eq(maxY, -3)
 	end)
 
-	t:test("reef band is clamped above the shelf", function()
-		local minY, maxY = FishMotion.zoneBounds(zone("CoralReef"), world, 58, 1, 2)
-		t:eq(minY, -(58 - 2) * 3)
+	t:test("a zone deeper than the seabed is clamped above the sand", function()
+		local minY, maxY = FishMotion.zoneBounds({ minDepth = 20, maxDepth = 100 }, world, 50, 1, 2)
+		t:eq(minY, -(50 - 2) * 3)
 		t:eq(maxY, -60)
 	end)
 
-	t:test("open ocean band spans the whole zone over the deep seabed", function()
-		local minY, maxY = FishMotion.zoneBounds(zone("OpenOcean"), world, 160, 1, 2)
-		t:eq(minY, -450)
-		t:eq(maxY, -180)
-	end)
-
-	t:test("zone cut by the seabed is clamped above the sand", function()
-		local minY, maxY = FishMotion.zoneBounds(zone("Twilight"), world, 160, 1, 2)
-		t:eq(minY, -(160 - 2) * 3)
-		t:eq(maxY, -450)
-	end)
-
-	t:test("zone entirely below the seabed has no band", function()
-		local minY, maxY = FishMotion.zoneBounds(zone("Trench"), world, 160, 1, 2)
+	t:test("a zone entirely below the seabed has no band", function()
+		local minY, maxY = FishMotion.zoneBounds({ minDepth = 60, maxDepth = 100 }, world, 50, 1, 2)
 		t:eq(minY, nil)
 		t:eq(maxY, nil)
 	end)

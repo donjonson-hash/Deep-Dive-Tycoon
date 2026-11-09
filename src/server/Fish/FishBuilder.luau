@@ -1,8 +1,8 @@
 --!strict
--- Builds fish models from parts, one recipe per species, so a sardine, a
--- seahorse and a parrotfish look like what their names say. Bodies are Parts
--- with a Sphere SpecialMesh (an ellipsoid the size of the part), fins are
--- wedges or flattened ellipsoids.
+-- Builds fish models from parts, one recipe per species, so a sardine and a
+-- tuna look like what their names say. Bodies are Parts with a Sphere
+-- SpecialMesh (an ellipsoid the size of the part), fins are wedges or
+-- flattened ellipsoids.
 --
 -- Contract with FishService: every fish faces -Z, PrimaryPart is "Body", and
 -- the tail is a Model whose pivot sits on its hinge; FishService swings it with
@@ -61,16 +61,6 @@ local function blob(
 	mesh.MeshType = Enum.MeshType.Sphere
 	mesh.Parent = part
 	return part
-end
-
-local function box(
-	name: string,
-	size: Vector3,
-	cframe: CFrame,
-	color: Color3,
-	parent: Instance
-): BasePart
-	return makePart("Part", { Name = name, Size = size, CFrame = cframe, Color = color }, parent)
 end
 
 -- Swept triangular fin. A WedgePart is thin at -Z and full height at +Z, so by
@@ -186,29 +176,6 @@ local function forkedTail(
 	return tail, hinge
 end
 
--- Rounded fan tail (clownfish-style) as a flattened ellipsoid.
-local function roundTail(
-	parent: Instance,
-	hingeZ: number,
-	height: number,
-	length: number,
-	color: Color3
-): (Model, CFrame)
-	local tail = Instance.new("Model")
-	tail.Name = "Tail"
-	blob(
-		"TailFin",
-		Vector3.new(0.14, height, length),
-		CFrame.new(0, 0, hingeZ + length / 2),
-		color,
-		tail
-	)
-	local hinge = CFrame.new(0, 0, hingeZ)
-	tail.WorldPivot = hinge
-	tail.Parent = parent
-	return tail, hinge
-end
-
 ---------------------------------------------------------------------------
 -- Species recipes. Each returns body, tail, tail hinge and the height of the
 -- top of the fish above its center.
@@ -227,148 +194,6 @@ local function sardine(model: Model): (BasePart, Model, CFrame, number)
 	eyes(model, 0.22, 0.12, -length / 2 + 0.45, 0.22)
 	local tail, hinge = forkedTail(model, length / 2 - 0.1, 0.5, 0.8, back)
 	return body, tail, hinge, 0.9
-end
-
-local function seahorse(model: Model): (BasePart, Model, CFrame, number)
-	local gold = Color3.fromRGB(240, 180, 60)
-	local dark = Color3.fromRGB(200, 130, 40)
-	-- Upright body, head bent forward at the top, snout pointing -Z.
-	local body = blob("Body", Vector3.new(0.7, 2.0, 1.0), CFrame.new(), gold, model)
-	blob("Belly", Vector3.new(0.75, 1.3, 1.1), CFrame.new(0, -0.25, -0.05), gold, model)
-	blob("Head", Vector3.new(0.6, 0.8, 0.9), CFrame.new(0, 1.25, -0.3), gold, model)
-	makePart("Part", {
-		Name = "Snout",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.9, 0.3, 0.3),
-		CFrame = CFrame.new(0, 1.2, -1.0) * CFrame.Angles(0, math.pi / 2, 0),
-		Color = dark,
-	}, model)
-	blob("Crown", Vector3.new(0.35, 0.4, 0.35), CFrame.new(0, 1.75, -0.2), dark, model)
-	-- Small back fin pointing away from the chest.
-	wedge("DorsalFin", Vector3.new(0.1, 0.9, 0.5), CFrame.new(0, 0.2, 0.7), dark, model)
-	eyes(model, 0.25, 1.35, -0.55, 0.2)
-	-- Curled prehensile tail hanging from the belly.
-	local tail = Instance.new("Model")
-	tail.Name = "Tail"
-	local segments = {
-		{ CFrame.new(0, -1.35, 0.05) * CFrame.Angles(0, 0, math.pi / 2), 0.8 },
-		{
-			CFrame.new(0, -1.9, -0.2)
-				* CFrame.Angles(0, 0, math.pi / 2)
-				* CFrame.Angles(0, 0, math.rad(45)),
-			0.7,
-		},
-		{ CFrame.new(0, -2.1, -0.7) * CFrame.Angles(0, math.pi / 2, 0), 0.6 },
-		{
-			CFrame.new(0, -1.9, -1.05)
-				* CFrame.Angles(0, 0, math.pi / 2)
-				* CFrame.Angles(0, 0, math.rad(-45)),
-			0.5,
-		},
-	}
-	for i, segment in segments do
-		local thickness = 0.3 - i * 0.04
-		makePart("Part", {
-			Name = "TailSegment",
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(segment[2], thickness, thickness),
-			CFrame = segment[1],
-			Color = if i % 2 == 0 then dark else gold,
-		}, tail)
-	end
-	local hinge = CFrame.new(0, -1.0, 0)
-	tail.WorldPivot = hinge
-	tail.Parent = model
-	return body, tail, hinge, 2.0
-end
-
-local function clownfish(model: Model): (BasePart, Model, CFrame, number)
-	local orange = Color3.fromRGB(255, 120, 20)
-	local white = Color3.fromRGB(250, 250, 250)
-	local length = 3.4
-	local body = blob("Body", Vector3.new(0.9, 1.5, length), CFrame.new(), orange, model)
-	-- Three white bands: head, a wide middle one, and the tail root.
-	for _, band in { { -0.95, 0.35, 1.0 }, { 0.15, 0.5, 1.08 }, { 1.2, 0.3, 0.9 } } do
-		blob(
-			"Band",
-			Vector3.new(0.95 * band[3], 1.55 * band[3], band[2]),
-			CFrame.new(0, 0, band[1]),
-			white,
-			model
-		)
-	end
-	blob("DorsalFin", Vector3.new(0.12, 0.8, 1.5), CFrame.new(0, 0.95, 0.1), orange, model)
-	blob("AnalFin", Vector3.new(0.12, 0.6, 1.0), CFrame.new(0, -0.9, 0.5), orange, model)
-	pectoralFins(model, 0.45, -0.15, -0.6, 0.8, orange)
-	eyes(model, 0.38, 0.25, -length / 2 + 0.5, 0.3)
-	local tail, hinge = roundTail(model, length / 2 - 0.15, 1.3, 1.1, orange)
-	return body, tail, hinge, 1.4
-end
-
-local function parrotfish(model: Model): (BasePart, Model, CFrame, number)
-	local teal = Color3.fromRGB(40, 170, 150)
-	local pink = Color3.fromRGB(230, 120, 170)
-	local blue = Color3.fromRGB(60, 120, 220)
-	local beak = Color3.fromRGB(250, 235, 235)
-	local length = 6.5
-	local body = blob("Body", Vector3.new(1.5, 2.6, length), CFrame.new(), teal, model)
-	blob("Belly", Vector3.new(1.45, 1.5, length * 0.85), CFrame.new(0, -0.65, 0.1), pink, model)
-	blob("Cheek", Vector3.new(1.55, 1.2, 1.6), CFrame.new(0, -0.1, -2.0), blue, model)
-	blob("Beak", Vector3.new(0.9, 0.7, 0.7), CFrame.new(0, -0.3, -length / 2 + 0.05), beak, model)
-	dorsalFin(model, 4.2, 0.9, 1.25, 0.4, pink)
-	analFin(model, 2.6, 0.7, -1.25, 1.0, pink)
-	pectoralFins(model, 0.75, -0.2, -1.4, 1.6, Color3.fromRGB(255, 200, 80))
-	eyes(model, 0.72, 0.55, -2.4, 0.4)
-	local tail, hinge = forkedTail(model, length / 2 - 0.3, 1.2, 1.5, blue)
-	return body, tail, hinge, 2.2
-end
-
-local function surgeonfish(model: Model): (BasePart, Model, CFrame, number)
-	local blue = Color3.fromRGB(30, 70, 220)
-	local ink = Color3.fromRGB(15, 15, 40)
-	local yellow = Color3.fromRGB(255, 220, 0)
-	local length = 4.6
-	-- Flat oval body with the blue tang's black "palette" on the upper flank.
-	local body = blob("Body", Vector3.new(0.6, 2.6, length), CFrame.new(), blue, model)
-	blob("Palette", Vector3.new(0.62, 1.7, length * 0.7), CFrame.new(0, 0.35, 0.3), ink, model)
-	blob("PaletteGap", Vector3.new(0.64, 0.6, length * 0.4), CFrame.new(0, 0.45, 0.2), blue, model)
-	dorsalFin(model, 3.2, 0.6, 1.25, 0.2, ink)
-	analFin(model, 2.4, 0.5, -1.25, 0.6, ink)
-	pectoralFins(model, 0.3, 0.1, -0.9, 1.1, yellow)
-	blob("Scalpel", Vector3.new(0.66, 0.25, 0.7), CFrame.new(0, -0.1, 1.9), yellow, model)
-	eyes(model, 0.3, 0.6, -length / 2 + 0.6, 0.32)
-	local tail, hinge = forkedTail(model, length / 2 - 0.2, 1.0, 1.2, yellow)
-	return body, tail, hinge, 1.9
-end
-
-local function angelfish(model: Model): (BasePart, Model, CFrame, number)
-	local silver = Color3.fromRGB(215, 215, 225)
-	local stripe = Color3.fromRGB(25, 25, 35)
-	local finColor = Color3.fromRGB(190, 190, 205)
-	local length = 3.4
-	-- Tall, thin disc of a body with vertical stripes and trailing fins.
-	local body = blob("Body", Vector3.new(0.5, 3.6, length), CFrame.new(), silver, model)
-	for _, z in { -0.9, 0.2, 1.2 } do
-		blob("Stripe", Vector3.new(0.54, 3.65, 0.35), CFrame.new(0, 0, z), stripe, model)
-	end
-	dorsalFin(model, 2.4, 3.0, 1.75, 0.3, finColor)
-	analFin(model, 2.4, 3.0, -1.75, 0.3, finColor)
-	-- Long ventral "feelers" trailing below the chest.
-	for _, side in { -1, 1 } do
-		box(
-			"VentralFin",
-			Vector3.new(0.1, 2.6, 0.12),
-			CFrame.new(side * 0.15, -1.5, -0.6)
-				* CFrame.Angles(math.rad(-25), 0, 0)
-				* CFrame.new(0, -1.2, 0),
-			finColor,
-			model
-		)
-	end
-	pectoralFins(model, 0.25, 0.1, -0.7, 0.8, finColor)
-	eyes(model, 0.26, 0.5, -length / 2 + 0.5, 0.3)
-	local tail, hinge = forkedTail(model, length / 2 - 0.15, 1.1, 1.3, finColor)
-	return body, tail, hinge, 4.8
 end
 
 local function tuna(model: Model): (BasePart, Model, CFrame, number)
@@ -430,11 +255,6 @@ end
 local RECIPES: { [string]: Recipe } = {
 	Sardine = sardine,
 	Tuna = tuna,
-	Seahorse = seahorse,
-	Clownfish = clownfish,
-	Parrotfish = parrotfish,
-	Surgeonfish = surgeonfish,
-	Angelfish = angelfish,
 }
 
 ---------------------------------------------------------------------------

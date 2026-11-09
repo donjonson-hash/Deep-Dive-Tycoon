@@ -50,16 +50,15 @@ return function(t: TestKit.TestKit)
 		end
 	end)
 
-	t:test("prototype ocean floor is below the deepest fish zone", function()
-		local deepest = 0
-		for _, fish in Config.Fish do
-			for _, zone in Config.Zones do
-				if zone.id == fish.zoneId then
-					deepest = math.max(deepest, zone.maxDepth)
-				end
+	t:test("no spawn ring claims a seabed deeper than the ocean floor", function()
+		for _, zone in Config.Zones do
+			if zone.spawn then
+				assert(
+					zone.spawn.floorMeters <= Config.World.oceanFloorMeters,
+					`{zone.id}: ring seabed below the ocean floor`
+				)
 			end
 		end
-		assert(Config.World.oceanFloorMeters > deepest, `ocean floor must be below {deepest} m`)
 	end)
 
 	t:test("every zone with fish has a spawn ring that fits the ocean", function()

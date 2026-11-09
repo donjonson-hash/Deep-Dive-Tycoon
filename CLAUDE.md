@@ -44,8 +44,8 @@ a terminal opened before they were installed needs a restart to see them.
 | `src/shared/Remotes.luau` | `ReplicatedStorage.Shared.Remotes` | Names of RemoteEvents under `ReplicatedStorage.Remotes` |
 | `src/shared/RarityColors.luau` | `ReplicatedStorage.Shared.RarityColors` | Rarity → Color3, used by fish models and the market list |
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
-| `src/server/World/MapBuilder.luau` | | Greybox map built at runtime (terrain with reef shelf, island, pools, kiosk, pier, palms) |
-| `src/server/World/ReefBuilder.luau` | | Seeded coral/seaweed clusters on the reef shelf |
+| `src/server/World/MapBuilder.luau` | | Greybox map built at runtime (terrain, island, pools, kiosk, pier, palms) |
+| `src/server/World/SeabedBuilder.luau` | | Seeded rock/coral/seaweed clusters on the lagoon seabed |
 | `src/server/Eggs/EggService.luau` | | Nests on the seabed: egg model, odds label, buy prompt, restock |
 | `src/server/Player/` | | `PlayerState` (attributes + net), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
 | `src/server/Fish/` | | `FishBuilder` (one part recipe per species; tail is a Model pivoted on its hinge), `FishService` (spawn, swim, prompt, respawn), `CatchService` (take a fish) |
@@ -68,10 +68,11 @@ a terminal opened before they were installed needs a restart to see them.
   UI buttons (`SellCatch`) and get a cooldown plus a zone/distance check.
 - Area checks (pools, sell zone) convert the position to the part's object
   space and call the pure `Logic/Bounds.contains`.
-- Seabed: a reef shelf at `World.shelfDepthMeters` out to `World.shelfRadius`,
-  then the deep floor at `World.oceanFloorMeters`. Each zone with fish has a
-  `spawn` ring (radii + the seabed under it); fish, corals and nests all
-  derive their positions from those rings, never from hard-coded radii.
+- Prototype world: one zone (Lagoon, `World.oceanFloorMeters` = 50 m deep)
+  and two species. Each zone with fish has a `spawn` ring (radii + the seabed
+  under it); fish, seabed props and nests all derive their positions from
+  those rings, never from hard-coded radii. Adding a zone = adding a `Zones`
+  entry with a ring and a `FishBuilder` recipe per new species.
 - Terrain is smoothed on a 4-stud grid: anything built flush with the island
   top sinks into the sand. Keep walkable props ≥ 3 studs above
   `Config.World.islandTopY` (see `POOL_LIFT` / `MARKET_LIFT` in `MapBuilder`).

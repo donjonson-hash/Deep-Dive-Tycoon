@@ -15,10 +15,19 @@ return function(t: TestKit.TestKit)
 	end)
 
 	t:test("zone boundaries: min inclusive, max exclusive", function()
+		local zones = {
+			{ id = "A", minDepth = 0, maxDepth = 20 },
+			{ id = "B", minDepth = 20, maxDepth = math.huge },
+		}
+		t:eq((Depth.zoneAt(zones, 0) :: any).id, "A")
+		t:eq((Depth.zoneAt(zones, 19.99) :: any).id, "A")
+		t:eq((Depth.zoneAt(zones, 20) :: any).id, "B")
+		t:eq((Depth.zoneAt(zones, 5000) :: any).id, "B")
+	end)
+
+	t:test("the prototype lagoon covers every depth", function()
 		t:eq((Depth.zoneAt(Config.Zones, 0) :: any).id, "Lagoon")
-		t:eq((Depth.zoneAt(Config.Zones, 19.99) :: any).id, "Lagoon")
-		t:eq((Depth.zoneAt(Config.Zones, 20) :: any).id, "CoralReef")
-		t:eq((Depth.zoneAt(Config.Zones, 5000) :: any).id, "Trench")
+		t:eq((Depth.zoneAt(Config.Zones, 49) :: any).id, "Lagoon")
 	end)
 
 	t:test("negative depth has no zone", function()
