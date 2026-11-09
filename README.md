@@ -29,8 +29,10 @@ Studio и Rojo на одной машине, сеть не нужна.
 2. В Studio: Plugins → Rojo → Connect (адрес `localhost`, порт `34872`).
 3. Нажми Play. В Output должно быть `[DeepDive] Server started, map built`.
 
-Плагин Rojo ставится из Creator Store (Rojo 7), его версия должна совпадать с
-`rojo` в `rokit.toml`.
+Плагин Rojo ставится командой `rojo plugin install` (один раз, затем перезапуск
+Studio): она кладёт в папку плагинов версию, совпадающую с `rojo` из
+`rokit.toml`. Плагин «Rojo 7» из Creator Store не подходит: он устарел (7.2.1)
+и выдаёт «Can't parse JSON», его нужно отключить в Plugins → Manage Plugins.
 
 ## Тест в Studio с кодом на Linux (запасной путь)
 
@@ -44,7 +46,8 @@ Studio и Rojo на одной машине, сеть не нужна.
    доступ — приватный.
 3. Game Settings → Security → включи **Enable Studio Access to API Services**
    (нужно для сохранений).
-4. Скачай плагин `Rojo.rbxm` версии **7.7.1** из
+4. Поставь плагин Rojo: на ноутбуке `rojo plugin install` (см. выше) или
+   скачай `Rojo.rbxm` версии **7.7.1** из
    [релиза Rojo](https://github.com/rojo-rbx/rojo/releases/tag/v7.7.1) и положи
    в папку плагинов: в Studio вкладка Plugins → Plugins Folder. Перезапусти Studio.
    Версия плагина должна совпадать с `rojo` из `rokit.toml`.
