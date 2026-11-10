@@ -103,6 +103,11 @@ Config.Movement = {
 	baseWalkSpeed = 16, -- Roblox default; swimming speed derives from it
 }
 
+-- Diving gear every player wears. A shop for upgrades comes later (ROADMAP).
+Config.Gear = {
+	finsSwimMultiplier = 1.5, -- assumption: fins make swimming 50 % faster, tune after playtests
+}
+
 Config.Weight = {
 	speedPenaltyPerKg = 0.02, -- each kg carried slows swimming by 2 %
 	minSpeedMultiplier = 0.4, -- never slower than 40 % of base speed

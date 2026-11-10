@@ -25,6 +25,7 @@ local function tick(player: Player, dt: number)
 
 	local world = Config.World
 	local depth = Depth.toMeters(root.Position.Y, world.surfaceY, world.studsPerMeter)
+	PlayerState.setInWater(player, root.Position.Y < world.surfaceY) -- fins only work in the water
 	local current = PlayerState.getCurrentO2(player)
 
 	if depth < world.surfaceToleranceMeters then

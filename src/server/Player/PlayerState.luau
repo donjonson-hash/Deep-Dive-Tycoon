@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Attributes = require(ReplicatedStorage.Shared.Attributes)
 local Fishing = require(ReplicatedStorage.Shared.Logic.Fishing)
+local Movement = require(ReplicatedStorage.Shared.Logic.Movement)
 local Net = require(ReplicatedStorage.Shared.Logic.Net)
 
 local PlayerState = {}
@@ -21,6 +22,8 @@ export type NetItem = {
 -- The net and the eggs live in server memory; attributes carry JSON copies.
 local nets: { [Player]: { NetItem } } = {}
 local eggs: { [Player]: { string } } = {}
+-- Whether the character is below the water surface (OxygenService updates it).
+local inWater: { [Player]: boolean } = {}
 
 local function getNumber(player: Player, name: string): number
 	local value = player:GetAttribute(name)
@@ -86,24 +89,37 @@ function PlayerState.getNet(player: Player): { NetItem }
 	return nets[player] or {}
 end
 
--- Heavier catch, slower diver (Config.Weight). Applied to the live Humanoid.
-local function applyWeightPenalty(player: Player)
+-- Speed of the live Humanoid: a heavier catch slows the diver
+-- (Config.Weight), fins speed them up in the water (Config.Gear).
+local function applySpeed(player: Player)
 	local character = player.Character
 	local humanoid = if character then character:FindFirstChildOfClass("Humanoid") else nil
 	if not humanoid then
 		return
 	end
-	local multiplier = Fishing.speedMultiplier(
+	local weightMultiplier = Fishing.speedMultiplier(
 		Net.totalWeight(PlayerState.getNet(player)),
 		Config.Weight.speedPenaltyPerKg,
 		Config.Weight.minSpeedMultiplier
 	)
-	humanoid.WalkSpeed = Config.Movement.baseWalkSpeed * multiplier
+	humanoid.WalkSpeed = Movement.speed(
+		Config.Movement.baseWalkSpeed,
+		weightMultiplier,
+		inWater[player] == true,
+		Config.Gear.finsSwimMultiplier
+	)
+end
+
+function PlayerState.setInWater(player: Player, value: boolean)
+	if (inWater[player] == true) ~= value then
+		inWater[player] = value
+		applySpeed(player)
+	end
 end
 
 local function publishNet(player: Player)
 	player:SetAttribute(Attributes.Net, HttpService:JSONEncode(PlayerState.getNet(player)))
-	applyWeightPenalty(player)
+	applySpeed(player)
 end
 
 function PlayerState.addToNet(player: Player, item: NetItem)
@@ -122,13 +138,14 @@ function PlayerState.clearNet(player: Player)
 end
 
 local function onCharacterAdded(player: Player, character: Model)
-	-- Every new character starts with a full tank and an empty net.
+	-- Every new character starts on the island with a full tank and an empty net.
+	inWater[player] = false
 	PlayerState.setCurrentO2(player, PlayerState.getMaxO2(player))
 	PlayerState.clearNet(player)
 
 	local humanoid = character:WaitForChild("Humanoid", 5)
 	if humanoid and humanoid:IsA("Humanoid") then
-		applyWeightPenalty(player)
+		applySpeed(player)
 		-- Dying underwater (or anywhere) loses the catch: the GDD's price of running out.
 		humanoid.Died:Connect(function()
 			PlayerState.clearNet(player)
@@ -160,6 +177,7 @@ function PlayerState.start()
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(function(player)
 		nets[player] = nil
+		inWater[player] = nil
 		eggs[player] = nil
 	end)
 end

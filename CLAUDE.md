@@ -51,7 +51,7 @@ a terminal opened before they were installed needs a restart to see them.
 | `src/client/World/UnderwaterFx.luau` | | Client-only underwater grade, blur and marine snow |
 | `src/server/World/WreckBuilder.luau` | | Sunken ship on the seabed (ship space + root CFrame, like the kiosk) |
 | `src/server/Eggs/EggService.luau` | | Nests on the seabed: egg model, odds label, buy prompt, restock |
-| `src/server/Player/` | | `PlayerState` (attributes + net), `OxygenService` (drain/refill tick), `PoolService` (MaxO2 training in pools) |
+| `src/server/Player/` | | `PlayerState` (attributes, net, speed: weight × fins in water), `OxygenService` (drain/refill tick, sets in-water), `PoolService` (MaxO2 training in pools), `Fins` (fin models welded to the feet) |
 | `src/server/Fish/` | | `FishBuilder` (one part recipe per species at natural size, `SCALE` applied on output; tail is a Model pivoted on its hinge), `FishService` (spawn, swim, prompt, respawn), `CatchService` (take a fish) |
 | `src/server/Market/MarketService.luau` | | `SellCatch` remote: zone + cooldown check, payout |
 | `src/client/` | `StarterPlayerScripts.Client` (LocalScript) | UI controllers |
