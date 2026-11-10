@@ -45,7 +45,7 @@ a terminal opened before they were installed needs a restart to see them.
 | `src/shared/RarityColors.luau` | `ReplicatedStorage.Shared.RarityColors` | Rarity → Color3, used by fish models and the market list |
 | `src/server/` | `ServerScriptService.Server` (Script) | Server entry + services |
 | `src/server/World/MapBuilder.luau` | | Greybox map built at runtime (terrain, island, pools, kiosk, pier, palms) |
-| `src/server/World/SeabedBuilder.luau` | | Seeded reef patches (13 coral shapes, rocks), giant kelp stalks, bubble vents |
+| `src/server/World/SeabedBuilder.luau` | | Seeded reef patches composed hero / middle / base like the owner's watercolor references, giant kelp stalks, bubble vents |
 | `src/shared/KelpRig.luau` | `ReplicatedStorage.Shared.KelpRig` | Kelp stalk geometry and sway constants, shared by server and client |
 | `src/client/World/KelpSway.luau` | | Client-only kelp animation (tag + attributes, BulkMoveTo, distance cull) |
 | `src/client/World/UnderwaterFx.luau` | | Client-only underwater grade, blur and marine snow |

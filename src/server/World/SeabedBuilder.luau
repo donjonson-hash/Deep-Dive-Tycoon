@@ -1,11 +1,18 @@
 --!strict
--- Dresses the lagoon seabed: patches of rocks and corals in thirteen shapes,
--- forests of giant kelp that the client sways, and vents leaking bubbles.
--- Seeded so every server matches.
+-- Dresses the lagoon seabed: reef patches composed like the owner's
+-- watercolor references (a tall "hero" coral, a middle layer around it,
+-- cushions and leafy weed at the base), forests of giant kelp that the
+-- client sways, and vents leaking bubbles. Seeded so every server matches.
+--
+-- Reference shapes: a pink-to-coral branching tree that splits down to fine
+-- twigs, a sea fan with a maroon skeleton and a pink lacy membrane, clusters
+-- of yellow-orange trumpet cups with pink rims, mint feathery bushes, olive
+-- moss and dark-blue sponge cushions, a striped yellow/orange brain coral
+-- and wavy orange weed.
 --
 -- Sizes are real-world meters converted with Config.World.studsPerMeter (a
--- Roblox character is ~5 studs ≈ 1.7 m). Corals use the upper end of what
--- real colonies reach (2–4 m), so the reef reads as old and lush.
+-- Roblox character is ~5 studs ≈ 1.7 m); heroes reach 3–4 m like old reef
+-- colonies.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,13 +29,43 @@ local function m(meters: number): number
 end
 
 local SEED = 11
-local CLUSTERS = 80
+local PATCHES = 50
 local KELP_CHANCE = 0.5 -- share of patches with a kelp tuft
 local VENTS = 12
 local EDGE_MARGIN = 14 -- studs kept clear of the ring edges
 local SINK = m(0.15) -- bury bases a little so nothing floats over the sand
 local UPRIGHT = CFrame.Angles(0, 0, math.pi / 2) -- cylinder axis X -> Y
 local TAU = 2 * math.pi
+
+---------------------------------------------------------------------------
+-- Palettes, sampled from the references
+---------------------------------------------------------------------------
+
+type Gradient = { base: Color3, tip: Color3 }
+
+local TREE_GRADIENTS: { Gradient } = {
+	{ base = Color3.fromRGB(215, 70, 115), tip = Color3.fromRGB(250, 150, 165) }, -- pink
+	{ base = Color3.fromRGB(230, 80, 70), tip = Color3.fromRGB(255, 160, 120) }, -- coral red
+	{ base = Color3.fromRGB(240, 110, 90), tip = Color3.fromRGB(255, 190, 150) }, -- salmon
+}
+local FAN_SKELETON = Color3.fromRGB(140, 40, 60)
+local FAN_MEMBRANES =
+	{ Color3.fromRGB(240, 140, 160), Color3.fromRGB(245, 120, 140), Color3.fromRGB(250, 165, 175) }
+local CUP_BODY =
+	{ Color3.fromRGB(255, 205, 70), Color3.fromRGB(250, 165, 60), Color3.fromRGB(255, 185, 90) }
+local CUP_RIM = Color3.fromRGB(245, 135, 115)
+local CUP_MOUTH = Color3.fromRGB(190, 105, 50)
+local FEATHER: { Gradient } = {
+	{ base = Color3.fromRGB(110, 180, 175), tip = Color3.fromRGB(190, 230, 220) },
+	{ base = Color3.fromRGB(130, 195, 185), tip = Color3.fromRGB(205, 235, 225) },
+}
+local MOSS =
+	{ Color3.fromRGB(120, 150, 80), Color3.fromRGB(150, 170, 90), Color3.fromRGB(95, 130, 80) }
+local DARK_SPONGE =
+	{ Color3.fromRGB(40, 80, 100), Color3.fromRGB(55, 100, 110), Color3.fromRGB(35, 65, 90) }
+local BRAIN_STRIPES = { Color3.fromRGB(250, 210, 120), Color3.fromRGB(235, 150, 50) }
+local WEED =
+	{ Color3.fromRGB(230, 140, 50), Color3.fromRGB(245, 165, 70), Color3.fromRGB(225, 120, 45) }
 
 local CORAL_COLORS = {
 	Color3.fromRGB(255, 120, 160),
@@ -37,7 +74,6 @@ local CORAL_COLORS = {
 	Color3.fromRGB(255, 210, 70),
 	Color3.fromRGB(80, 200, 190),
 	Color3.fromRGB(240, 90, 90),
-	Color3.fromRGB(120, 200, 110),
 }
 local SPONGE_COLORS = {
 	Color3.fromRGB(190, 95, 60),
@@ -67,6 +103,7 @@ local function makePart(props: { [string]: any }, parent: Instance): BasePart
 	part.Anchored = true
 	part.CanCollide = false
 	part.CanQuery = false
+	part.CanTouch = false
 	part.CastShadow = false
 	part.Material = Enum.Material.Pebble
 	part.TopSurface = Enum.SurfaceType.Smooth
@@ -133,6 +170,13 @@ local function jitter(rng: Random, meters: number): Vector3
 	return Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)) * m(meters)
 end
 
+-- A point in a ring of minM..maxM meters around `base`.
+local function around(rng: Random, base: Vector3, minM: number, maxM: number): Vector3
+	local angle = rng:NextNumber(0, TAU)
+	local radius = m(rng:NextNumber(minM, maxM))
+	return base + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+end
+
 local function pick<T>(rng: Random, list: { T }): T
 	return list[rng:NextInteger(1, #list)]
 end
@@ -142,30 +186,275 @@ local function ground(base: Vector3, rng: Random): CFrame
 	return CFrame.new(base - Vector3.new(0, SINK, 0)) * CFrame.Angles(0, rng:NextNumber(0, TAU), 0)
 end
 
----------------------------------------------------------------------------
--- Coral shapes
----------------------------------------------------------------------------
-
 type Shape = (parent: Instance, base: Vector3, rng: Random) -> ()
 
--- Staghorn: branches 1–2 m long, each forking once or twice.
-local function staghorn(parent: Instance, base: Vector3, rng: Random)
-	local color = pick(rng, CORAL_COLORS)
-	for _ = 1, rng:NextInteger(5, 8) do
-		local length = m(rng:NextNumber(1, 2))
-		local radius = m(0.1)
-		local stem = ground(base + jitter(rng, 0.6), rng)
-			* CFrame.Angles(rng:NextNumber(-0.6, 0.6), 0, 0)
-		rod("Staghorn", stem, length, radius, color, parent)
-		local fork = stem * CFrame.new(0, length * 0.55, 0)
-		for _ = 1, rng:NextInteger(1, 2) do
-			local branch = fork
-				* CFrame.Angles(0, rng:NextNumber(0, TAU), 0)
-				* CFrame.Angles(rng:NextNumber(0.4, 0.8), 0, 0)
-			rod("Staghorn", branch, length * 0.5, radius * 0.8, color, parent)
+---------------------------------------------------------------------------
+-- Reference shapes
+---------------------------------------------------------------------------
+
+-- Branching tree coral (reference 1, center): a thick trunk that splits two
+-- or three ways per level, mostly in one plane, thinning and paling toward
+-- the twigs. 3–4 m tall.
+local function treeCoral(parent: Instance, base: Vector3, rng: Random)
+	local gradient = pick(rng, TREE_GRADIENTS)
+	local maxDepth = 3
+
+	local function branch(from: CFrame, length: number, radius: number, depth: number)
+		local color = gradient.base:Lerp(gradient.tip, depth / maxDepth)
+		rod("TreeCoral", from, length + radius, radius, color, parent)
+		if depth >= maxDepth then
+			blob(
+				"TreeTip",
+				Vector3.one * radius * 2.4,
+				from * CFrame.new(0, length + radius, 0),
+				color,
+				parent
+			)
+			return
+		end
+		local top = from * CFrame.new(0, length, 0)
+		if depth < 2 then
+			-- Knuckle hides the seam where thick limbs meet.
+			blob("TreeJoint", Vector3.one * radius * 2.2, top, color, parent)
+		end
+		local children = rng:NextInteger(2, 3)
+		for c = 1, children do
+			local spread = ((c - (children + 1) / 2) / children) * 1.5 + rng:NextNumber(-0.2, 0.2)
+			local child = top * CFrame.Angles(rng:NextNumber(-0.35, 0.35), 0, spread)
+			branch(child, length * rng:NextNumber(0.62, 0.78), radius * 0.62, depth + 1)
+		end
+	end
+
+	branch(ground(base, rng), m(rng:NextNumber(1.2, 1.8)), m(0.22), 0)
+end
+
+-- Lacy sea fan (reference 2): a flat maroon skeleton forking in its own
+-- plane, behind it a membrane of packed pink cells whose gaps read as holes.
+local function lacyFan(parent: Instance, base: Vector3, rng: Random)
+	local root = ground(base, rng)
+	local width = m(rng:NextNumber(1.8, 2.8))
+	local height = width * 0.85
+	local membrane = pick(rng, FAN_MEMBRANES)
+
+	local function bone(from: CFrame, length: number, radius: number, depth: number)
+		rod("FanBone", from, length + radius, radius, FAN_SKELETON, parent)
+		if depth >= 3 then
+			return
+		end
+		local top = from * CFrame.new(0, length, 0)
+		for _, side in { -1, 1 } do
+			bone(
+				top * CFrame.Angles(0, 0, side * rng:NextNumber(0.3, 0.6)),
+				length * 0.7,
+				radius * 0.7,
+				depth + 1
+			)
+		end
+	end
+	bone(root, height * 0.35, m(0.07), 0)
+
+	-- Hex-packed cells inside an ellipse; each is 90 % of the spacing so the
+	-- triangular gaps between them show through like the lace's holes.
+	local cell = m(0.42)
+	local centerY = height * 0.55
+	local halfW, halfH = width / 2, height / 2
+	local rows = math.floor(height / (cell * 0.87))
+	local cols = math.floor(width / cell)
+	for row = 0, rows do
+		local y = m(0.3) + row * cell * 0.87
+		for col = -cols, cols do
+			local x = col * cell + (row % 2) * cell / 2
+			local dx, dy = x / halfW, (y - centerY) / halfH
+			if dx * dx + dy * dy <= 1 then
+				local piece = blob(
+					"FanLace",
+					Vector3.new(cell * 0.9, cell * 0.9, m(0.03)),
+					root * CFrame.new(x, y, 0),
+					membrane,
+					parent
+				)
+				piece.Transparency = 0.2
+			end
 		end
 	end
 end
+
+-- Trumpet cups (reference 1, left): 4–7 flared yellow-orange cups fanning
+-- out from one foot, each with a pink rim and a darker mouth.
+local function trumpetCups(parent: Instance, base: Vector3, rng: Random)
+	local root = ground(base, rng)
+	local count = rng:NextInteger(4, 7)
+	for i = 1, count do
+		local cup = root
+			* CFrame.new(jitter(rng, 0.15))
+			* CFrame.Angles(0, i / count * TAU + rng:NextNumber(-0.3, 0.3), 0)
+			* CFrame.Angles(rng:NextNumber(0.15, 0.8), 0, 0)
+		local length = m(rng:NextNumber(0.5, 1))
+		local radius = m(rng:NextNumber(0.18, 0.3))
+		local body = pick(rng, CUP_BODY)
+		-- Stepped flare: stem, then two wider rings.
+		rod("CupStem", cup, length * 0.45, radius * 0.45, body, parent)
+		rod(
+			"CupFlare",
+			cup * CFrame.new(0, length * 0.4, 0),
+			length * 0.35,
+			radius * 0.75,
+			body,
+			parent
+		)
+		rod("CupFlare", cup * CFrame.new(0, length * 0.7, 0), length * 0.3, radius, body, parent)
+		disc(
+			"CupRim",
+			cup * CFrame.new(0, length + m(0.01), 0),
+			radius * 2.25,
+			m(0.05),
+			CUP_RIM,
+			parent
+		)
+		disc(
+			"CupMouth",
+			cup * CFrame.new(0, length + m(0.04), 0),
+			radius * 1.6,
+			m(0.02),
+			CUP_MOUTH,
+			parent
+		)
+	end
+end
+
+-- Feathery bush (reference 1, behind): 3–5 fronds with paired leaflets,
+-- mint at the base and paler at the tips. About 1–1.5 m.
+local function featherBush(parent: Instance, base: Vector3, rng: Random)
+	local gradient = pick(rng, FEATHER)
+	local root = ground(base, rng)
+	local count = rng:NextInteger(3, 5)
+	for i = 1, count do
+		local frond = root
+			* CFrame.Angles(0, i / count * TAU + rng:NextNumber(-0.4, 0.4), 0)
+			* CFrame.Angles(rng:NextNumber(0.2, 0.7), 0, 0)
+		local length = m(rng:NextNumber(0.9, 1.6))
+		rod("FeatherStem", frond, length, m(0.05), gradient.base, parent)
+		for j = 1, 3 do
+			local t = j / 3
+			local leaf = m(0.5) * (1.15 - t * 0.45)
+			local at = frond * CFrame.new(0, length * (0.2 + t * 0.6), 0)
+			local color = gradient.base:Lerp(gradient.tip, t)
+			for _, side in { -1, 1 } do
+				blob(
+					"Feather",
+					Vector3.new(leaf, m(0.08), m(0.16)),
+					at * CFrame.Angles(0, 0, side * 0.5) * CFrame.new(side * leaf / 2, 0, 0),
+					color,
+					parent
+				)
+			end
+		end
+		blob(
+			"FeatherTip",
+			Vector3.new(m(0.14), m(0.3), m(0.14)),
+			frond * CFrame.new(0, length, 0),
+			gradient.tip,
+			parent
+		)
+	end
+end
+
+-- Lumpy cushion of overlapping balls (reference 1, base): moss or sponge.
+local function cushion(
+	parent: Instance,
+	base: Vector3,
+	rng: Random,
+	palette: { Color3 },
+	name: string
+)
+	local root = ground(base, rng)
+	local width = m(rng:NextNumber(0.9, 1.8))
+	for _ = 1, rng:NextInteger(5, 8) do
+		local size = width * rng:NextNumber(0.35, 0.6)
+		local offset = Vector3.new(
+			rng:NextNumber(-0.5, 0.5) * width,
+			size * 0.25,
+			rng:NextNumber(-0.35, 0.35) * width
+		)
+		blob(
+			name,
+			Vector3.new(size, size * 0.7, size),
+			root * CFrame.new(offset),
+			pick(rng, palette),
+			parent
+		)
+	end
+end
+
+local function mossMound(parent: Instance, base: Vector3, rng: Random)
+	cushion(parent, base, rng, MOSS, "Moss")
+end
+
+local function spongeMound(parent: Instance, base: Vector3, rng: Random)
+	cushion(parent, base, rng, DARK_SPONGE, "DarkSponge")
+end
+
+-- Striped brain coral (reference 2, base): stacked, shrinking domes in
+-- alternating yellow and orange; each cap pokes out of the one below,
+-- leaving a ring of the other color.
+local function stripedBrain(parent: Instance, base: Vector3, rng: Random)
+	local root = ground(base, rng)
+	local width = m(rng:NextNumber(1.4, 2.6))
+	local height = width * 0.5
+	local top = height * 0.2 -- the first dome is half buried
+	for i = 0, 4 do
+		local k = 1 - i * 0.17
+		local w, h = width * k, height * k
+		local y = top + m(0.05) - h / 2
+		blob(
+			"BrainCoral",
+			Vector3.new(w, h, w * 0.85),
+			root
+				* CFrame.new(
+					rng:NextNumber(-0.04, 0.04) * width,
+					y,
+					rng:NextNumber(-0.04, 0.04) * width
+				)
+				* CFrame.Angles(0, rng:NextNumber(-0.2, 0.2), 0),
+			BRAIN_STRIPES[i % 2 + 1],
+			parent
+		)
+		top = y + h / 2
+	end
+end
+
+-- Wavy orange weed (reference 2, base): 5–8 blades, each bending halfway up.
+local function leafyWeed(parent: Instance, base: Vector3, rng: Random)
+	local root = ground(base, rng)
+	local count = rng:NextInteger(5, 8)
+	for i = 1, count do
+		local blade = root
+			* CFrame.Angles(0, i / count * TAU + rng:NextNumber(-0.3, 0.3), 0)
+			* CFrame.Angles(rng:NextNumber(0.1, 0.5), 0, 0)
+		local length = m(rng:NextNumber(0.6, 1.2))
+		blob(
+			"WeedBlade",
+			Vector3.new(m(0.22), length * 0.6, m(0.03)),
+			blade * CFrame.new(0, length * 0.3, 0),
+			pick(rng, WEED),
+			parent
+		)
+		blob(
+			"WeedBlade",
+			Vector3.new(m(0.18), length * 0.5, m(0.03)),
+			blade
+				* CFrame.new(0, length * 0.55, 0)
+				* CFrame.Angles(rng:NextNumber(-0.5, 0.5), 0, 0)
+				* CFrame.new(0, length * 0.25, 0),
+			pick(rng, WEED),
+			parent
+		)
+	end
+end
+
+---------------------------------------------------------------------------
+-- Supporting shapes kept from before
+---------------------------------------------------------------------------
 
 -- Elkhorn: broad flat antlers fanning out and up, 1.2–2.2 m.
 local function elkhorn(parent: Instance, base: Vector3, rng: Random)
@@ -183,59 +472,7 @@ local function elkhorn(parent: Instance, base: Vector3, rng: Random)
 			color,
 			parent
 		)
-		-- Split tip.
-		for _, side in { -1, 1 } do
-			blob(
-				"Elkhorn",
-				Vector3.new(m(0.3), length * 0.4, m(0.1)),
-				antler
-					* CFrame.new(0, length * 0.95, 0)
-					* CFrame.Angles(0, 0, side * 0.5)
-					* CFrame.new(0, length * 0.18, 0),
-				color,
-				parent
-			)
-		end
 	end
-end
-
--- Brain coral: a dome 1.5–3.5 m across, sometimes with a smaller twin.
-local function brainCoral(parent: Instance, base: Vector3, rng: Random)
-	local color = pick(rng, CORAL_COLORS)
-	local width = m(rng:NextNumber(1.5, 3.5))
-	blob(
-		"BrainCoral",
-		Vector3.new(width, width * 0.55, width * rng:NextNumber(0.8, 1.1)),
-		CFrame.new(base + Vector3.new(0, width * 0.27 - SINK, 0)),
-		color,
-		parent
-	)
-	if rng:NextNumber() < 0.5 then
-		local small = width * 0.5
-		blob(
-			"BrainCoral",
-			Vector3.new(small, small * 0.55, small),
-			CFrame.new(base + Vector3.new(width * 0.55, small * 0.27 - SINK, width * 0.2)),
-			color,
-			parent
-		)
-	end
-end
-
--- Sea fan: a lacy plate 1.5–3 m wide on a short stalk.
-local function seaFan(parent: Instance, base: Vector3, rng: Random)
-	local color = pick(rng, CORAL_COLORS)
-	local size = m(rng:NextNumber(1.5, 3))
-	local root = ground(base, rng)
-	rod("FanStalk", root, m(0.3), m(0.06), color, parent)
-	local plate = blob(
-		"SeaFan",
-		Vector3.new(size, size * 1.1, m(0.04)),
-		root * CFrame.new(0, m(0.25) + size * 0.55, 0),
-		color,
-		parent
-	)
-	plate.Transparency = 0.15
 end
 
 -- Table coral: a plate 2.5–4 m across on a stalk, sometimes two tiers.
@@ -329,24 +566,6 @@ local function mushroomCoral(parent: Instance, base: Vector3, rng: Random)
 	end
 end
 
--- Soft coral: a bushy tree of puffs 1–2 m tall.
-local function softCoral(parent: Instance, base: Vector3, rng: Random)
-	local color = pick(rng, CORAL_COLORS)
-	local root = ground(base, rng)
-	local height = m(rng:NextNumber(0.6, 1.2))
-	rod("SoftStalk", root, height, m(0.15), color, parent)
-	local crown = root * CFrame.new(0, height, 0)
-	for _ = 1, rng:NextInteger(8, 14) do
-		local size = m(rng:NextNumber(0.25, 0.5))
-		local offset = Vector3.new(
-			rng:NextNumber(-0.8, 0.8),
-			rng:NextNumber(0, 0.8),
-			rng:NextNumber(-0.8, 0.8)
-		)
-		blob("SoftCoral", Vector3.one * size, crown * CFrame.new(offset * SPM), color, parent)
-	end
-end
-
 -- Sea anemone: a squat column ringed with tentacles reaching up and out.
 local function anemone(parent: Instance, base: Vector3, rng: Random)
 	local color = pick(
@@ -364,13 +583,19 @@ local function anemone(parent: Instance, base: Vector3, rng: Random)
 	)
 	local count = 14
 	for i = 1, count do
-		local length = m(rng:NextNumber(0.4, 0.7))
 		local tentacle = root
 			* CFrame.new(0, width * 0.6, 0)
 			* CFrame.Angles(0, i / count * TAU, 0)
 			* CFrame.new(0, 0, width * 0.3)
 			* CFrame.Angles(rng:NextNumber(0.3, 0.8), 0, 0)
-		rod("Tentacle", tentacle, length, m(0.04), color:Lerp(Color3.new(1, 1, 1), 0.35), parent)
+		rod(
+			"Tentacle",
+			tentacle,
+			m(rng:NextNumber(0.4, 0.7)),
+			m(0.04),
+			color:Lerp(Color3.new(1, 1, 1), 0.35),
+			parent
+		)
 	end
 end
 
@@ -387,7 +612,7 @@ local function seaWhip(parent: Instance, base: Vector3, rng: Random)
 	end
 end
 
--- Giant clam: two ridged shells gaping open around a vivid mantle.
+-- Giant clam: two shells gaping open around a vivid mantle.
 local function giantClam(parent: Instance, base: Vector3, rng: Random)
 	local root = ground(base, rng)
 	local length = m(rng:NextNumber(1, 1.3))
@@ -412,35 +637,78 @@ local function giantClam(parent: Instance, base: Vector3, rng: Random)
 	mantle.Material = Enum.Material.Neon
 end
 
-local SHAPES: { Shape } = {
-	staghorn,
-	elkhorn,
-	brainCoral,
-	seaFan,
-	tableCoral,
-	tubeSponge,
-	barrelSponge,
-	pillarCoral,
-	mushroomCoral,
-	softCoral,
-	anemone,
-	seaWhip,
-	giantClam,
+---------------------------------------------------------------------------
+-- Patch composition: hero in the middle, middle layer around, base in front
+---------------------------------------------------------------------------
+
+type Weighted = { shape: Shape, weight: number }
+
+local HEROES: { Weighted } = {
+	{ shape = treeCoral, weight = 4 },
+	{ shape = lacyFan, weight = 3 },
+	{ shape = tableCoral, weight = 1 },
+	{ shape = pillarCoral, weight = 1 },
 }
+local MIDDLE: { Weighted } = {
+	{ shape = trumpetCups, weight = 3 },
+	{ shape = featherBush, weight = 3 },
+	{ shape = stripedBrain, weight = 2 },
+	{ shape = tubeSponge, weight = 1 },
+	{ shape = barrelSponge, weight = 1 },
+	{ shape = elkhorn, weight = 1 },
+	{ shape = anemone, weight = 1 },
+	{ shape = seaWhip, weight = 1 },
+}
+local BASE: { Weighted } = {
+	{ shape = mossMound, weight = 3 },
+	{ shape = spongeMound, weight = 2 },
+	{ shape = leafyWeed, weight = 3 },
+	{ shape = mushroomCoral, weight = 1 },
+	{ shape = giantClam, weight = 1 },
+}
+
+local function weighted(rng: Random, list: { Weighted }): Shape
+	local total = 0
+	for _, entry in list do
+		total += entry.weight
+	end
+	local roll = rng:NextNumber(0, total)
+	for _, entry in list do
+		roll -= entry.weight
+		if roll <= 0 then
+			return entry.shape
+		end
+	end
+	return list[#list].shape
+end
 
 -- Boulders 0.6–2.2 m.
 local function rocks(parent: Instance, base: Vector3, rng: Random)
-	for _ = 1, rng:NextInteger(2, 4) do
+	for _ = 1, rng:NextInteger(2, 3) do
 		local size = m(rng:NextNumber(0.6, 2.2))
 		local rock = blob(
 			"Rock",
 			Vector3.new(size, size * 0.7, size * rng:NextNumber(0.8, 1.3)),
-			CFrame.new(base + jitter(rng, 1.5) + Vector3.new(0, size * 0.3 - SINK, 0)),
+			CFrame.new(around(rng, base, 1.5, 3.5) + Vector3.new(0, size * 0.3 - SINK, 0)),
 			ROCK,
 			parent
 		)
 		rock.Material = Enum.Material.Slate
 	end
+end
+
+local function reefPatch(parent: Instance, base: Vector3, rng: Random)
+	local patch = Instance.new("Model")
+	patch.Name = "Reef"
+	weighted(rng, HEROES)(patch, base, rng)
+	for _ = 1, rng:NextInteger(2, 3) do
+		weighted(rng, MIDDLE)(patch, around(rng, base, 1.6, 2.8), rng)
+	end
+	for _ = 1, rng:NextInteger(2, 4) do
+		weighted(rng, BASE)(patch, around(rng, base, 0.9, 3.2), rng)
+	end
+	rocks(patch, base, rng)
+	patch.Parent = parent
 end
 
 ---------------------------------------------------------------------------
@@ -566,18 +834,11 @@ function SeabedBuilder.build(parent: Instance, floorY: number): Folder
 		return Vector3.new(math.cos(angle) * radius, floorY, math.sin(angle) * radius)
 	end
 
-	for _ = 1, CLUSTERS do
+	for _ = 1, PATCHES do
 		local base = randomSpot()
-		local cluster = Instance.new("Model")
-		cluster.Name = "Reef"
-		rocks(cluster, base, rng)
-		for _ = 1, rng:NextInteger(3, 4) do
-			pick(rng, SHAPES)(cluster, base + jitter(rng, 2.5), rng)
-		end
-		cluster.Parent = folder
-
+		reefPatch(folder, base, rng)
 		if rng:NextNumber() < KELP_CHANCE then
-			kelp(folder, base + jitter(rng, 3), rng)
+			kelp(folder, around(rng, base, 4, 7), rng)
 		end
 	end
 
