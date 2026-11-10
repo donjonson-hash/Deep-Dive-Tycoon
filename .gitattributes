@@ -1,0 +1,10 @@
+# Keep LF everywhere so StyLua/Selene/Rojo behave the same on Linux and Windows.
+* text=auto eol=lf
+
+# Binary Roblox assets
+*.rbxl binary
+*.rbxm binary
+*.png binary
+*.jpg binary
+*.ogg binary
+*.mp3 binary

@@ -1,0 +1,17 @@
+# Rojo build output (keep the folder: `rojo build` does not create it)
+build/*
+!build/.gitkeep
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+*.rbxl.lock
+
+# Selene generated standard library
+roblox.yml
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+sourcemap.json
