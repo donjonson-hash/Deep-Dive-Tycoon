@@ -11,8 +11,8 @@
 -- and wavy orange weed.
 --
 -- Sizes are real-world meters converted with Config.World.studsPerMeter (a
--- Roblox character is ~5 studs ≈ 1.7 m); heroes reach 3–4 m like old reef
--- colonies.
+-- Roblox character is ~5 studs ≈ 1.7 m); finished patches are scaled up by
+-- PATCH_SCALE, so heroes reach ~4–7 m.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -29,10 +29,16 @@ local function m(meters: number): number
 end
 
 local SEED = 11
-local PATCHES = 50
+-- Reef patches. Shapes are written in real meters, then each finished patch
+-- is scaled up around its seabed point by a random factor in PATCH_SCALE
+-- (owner wants taller corals: heroes end up ~4–7 m).
+local PATCHES = 70
+local PATCH_SCALE = { min = 1.3, max = 1.7 }
+local PATCH_MIDDLE = { min = 3, max = 4 } -- middle-layer corals per patch
+local PATCH_BASE = { min = 3, max = 5 } -- cushions, weed, discs, clams per patch
 -- Giant kelp. Real stalks grow up to the surface; ours stop SURFACE_GAP
 -- short of it so nothing pokes out of the water.
-local KELP_CHANCE = 0.85 -- share of reef patches with a kelp tuft
+local KELP_CHANCE = 0.6 -- share of reef patches with a kelp tuft (~same total as before)
 local KELP_TUFT = { min = 4, max = 7, spread = 2.5 } -- stalks, meters
 local KELP_FORESTS = 8 -- dense groves on open sand
 local KELP_FOREST = { min = 12, max = 20, spread = 7 }
@@ -576,14 +582,11 @@ end
 
 -- Sea anemone: a squat column ringed with tentacles reaching up and out.
 local function anemone(parent: Instance, base: Vector3, rng: Random)
-	local color = pick(
-		rng,
-		{
-			Color3.fromRGB(230, 80, 150),
-			Color3.fromRGB(120, 210, 120),
-			Color3.fromRGB(240, 150, 80),
-		}
-	)
+	local color = pick(rng, {
+		Color3.fromRGB(230, 80, 150),
+		Color3.fromRGB(120, 210, 120),
+		Color3.fromRGB(240, 150, 80),
+	})
 	local root = ground(base, rng)
 	local width = m(rng:NextNumber(0.6, 0.9))
 	blob(
@@ -713,13 +716,18 @@ local function reefPatch(parent: Instance, base: Vector3, rng: Random)
 	local patch = Instance.new("Model")
 	patch.Name = "Reef"
 	weighted(rng, HEROES)(patch, base, rng)
-	for _ = 1, rng:NextInteger(2, 3) do
+	for _ = 1, rng:NextInteger(PATCH_MIDDLE.min, PATCH_MIDDLE.max) do
 		weighted(rng, MIDDLE)(patch, around(rng, base, 1.6, 2.8), rng)
 	end
-	for _ = 1, rng:NextInteger(2, 4) do
+	for _ = 1, rng:NextInteger(PATCH_BASE.min, PATCH_BASE.max) do
 		weighted(rng, BASE)(patch, around(rng, base, 0.9, 3.2), rng)
 	end
 	rocks(patch, base, rng)
+
+	-- Grow the whole patch around its point on the sand, so bases stay
+	-- buried and the layout spreads with the height.
+	patch.WorldPivot = CFrame.new(base)
+	patch:ScaleTo(rng:NextNumber(PATCH_SCALE.min, PATCH_SCALE.max))
 	patch.Parent = parent
 end
 

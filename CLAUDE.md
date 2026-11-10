@@ -80,7 +80,8 @@ a terminal opened before they were installed needs a restart to see them.
 - Scenery scale: a Roblox character is ~5 studs ≈ 1.7 m at
   `World.studsPerMeter` = 3. Seabed props and the wreck are written in real
   meters and converted with that constant, so they match the player; corals
-  use the upper end of real colony sizes (2–4 m), kelp 22–42 m (capped 2 m
+  are built at real colony sizes and each reef patch is then scaled ×1.3–1.7
+  (`PATCH_SCALE`, owner wants them taller), kelp 22–42 m (capped 2 m
   below the surface). Fish are the
   exception: `FishBuilder.SCALE` = 2 on purpose (owner's call), for
   readability.
