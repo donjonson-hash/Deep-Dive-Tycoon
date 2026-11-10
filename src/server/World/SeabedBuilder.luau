@@ -30,7 +30,15 @@ end
 
 local SEED = 11
 local PATCHES = 50
-local KELP_CHANCE = 0.5 -- share of patches with a kelp tuft
+-- Giant kelp. Real stalks grow up to the surface; ours stop SURFACE_GAP
+-- short of it so nothing pokes out of the water.
+local KELP_CHANCE = 0.85 -- share of reef patches with a kelp tuft
+local KELP_TUFT = { min = 4, max = 7, spread = 2.5 } -- stalks, meters
+local KELP_FORESTS = 8 -- dense groves on open sand
+local KELP_FOREST = { min = 12, max = 20, spread = 7 }
+local KELP_HEIGHT = { min = 22, max = 42 } -- meters
+local KELP_SURFACE_GAP = 2 -- meters kept between the tallest tip and the surface
+local KELP_SEGMENTS = 6
 local VENTS = 12
 local EDGE_MARGIN = 14 -- studs kept clear of the ring edges
 local SINK = m(0.15) -- bury bases a little so nothing floats over the sand
@@ -570,7 +578,11 @@ end
 local function anemone(parent: Instance, base: Vector3, rng: Random)
 	local color = pick(
 		rng,
-		{ Color3.fromRGB(230, 80, 150), Color3.fromRGB(120, 210, 120), Color3.fromRGB(240, 150, 80) }
+		{
+			Color3.fromRGB(230, 80, 150),
+			Color3.fromRGB(120, 210, 120),
+			Color3.fromRGB(240, 150, 80),
+		}
 	)
 	local root = ground(base, rng)
 	local width = m(rng:NextNumber(0.6, 0.9))
@@ -715,15 +727,18 @@ end
 -- Giant kelp: segmented stalks the client sways (see KelpRig, KelpSway)
 ---------------------------------------------------------------------------
 
-local function kelp(parent: Instance, base: Vector3, rng: Random)
-	for _ = 1, rng:NextInteger(3, 5) do
-		local height = m(rng:NextNumber(12, 22))
+type KelpGroup = { min: number, max: number, spread: number }
+
+local function kelp(parent: Instance, base: Vector3, rng: Random, group: KelpGroup)
+	local tallest = math.min(KELP_HEIGHT.max, Config.World.oceanFloorMeters - KELP_SURFACE_GAP)
+	for _ = 1, rng:NextInteger(group.min, group.max) do
+		local height = m(rng:NextNumber(math.min(KELP_HEIGHT.min, tallest), tallest))
 		local spec: KelpRig.Spec = {
-			segments = 5,
-			segLength = height / 5,
-			leafLength = m(rng:NextNumber(1.2, 2)),
+			segments = KELP_SEGMENTS,
+			segLength = height / KELP_SEGMENTS,
+			leafLength = m(rng:NextNumber(1.5, 2.5)),
 		}
-		local baseCFrame = CFrame.new(base + jitter(rng, 1.8) - Vector3.new(0, SINK, 0))
+		local baseCFrame = CFrame.new(base + jitter(rng, group.spread) - Vector3.new(0, SINK, 0))
 			* CFrame.Angles(0, KelpRig.CURRENT_YAW + rng:NextNumber(-0.3, 0.3), 0)
 		local phase = rng:NextNumber(0, TAU)
 		local sway = KelpRig.SWAY
@@ -752,7 +767,7 @@ local function kelp(parent: Instance, base: Vector3, rng: Random)
 		for i, cframe in segments do
 			makePart({
 				Name = `S{i}`,
-				Size = Vector3.new(m(0.12), spec.segLength * 1.03, m(0.12)),
+				Size = Vector3.new(m(0.15), spec.segLength * 1.03, m(0.15)),
 				CFrame = cframe,
 				Color = KELP_STIPE,
 				Material = Enum.Material.SmoothPlastic,
@@ -838,8 +853,12 @@ function SeabedBuilder.build(parent: Instance, floorY: number): Folder
 		local base = randomSpot()
 		reefPatch(folder, base, rng)
 		if rng:NextNumber() < KELP_CHANCE then
-			kelp(folder, around(rng, base, 4, 7), rng)
+			kelp(folder, around(rng, base, 4, 7), rng, KELP_TUFT)
 		end
+	end
+
+	for _ = 1, KELP_FORESTS do
+		kelp(folder, randomSpot(), rng, KELP_FOREST)
 	end
 
 	for _ = 1, VENTS do

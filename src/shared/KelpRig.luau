@@ -11,11 +11,12 @@ local KelpRig = {}
 
 KelpRig.TAG = "Kelp"
 
--- Gentle surge: about 17° of extra bend at the tip, one cycle every ~5.5 s.
+-- Gentle surge: about 20° of extra bend at the tip of a 6-segment stalk,
+-- one cycle every ~5.5 s.
 KelpRig.SWAY = {
 	amplitude = 0.1, -- radians at the top joint
 	frequency = 0.18, -- Hz
-	lag = 0.7, -- radians of wave delay per joint
+	lag = 0.6, -- radians of wave delay per joint
 	lean = 0.02, -- radians per joint toward the current
 }
 
